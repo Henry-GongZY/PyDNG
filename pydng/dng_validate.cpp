@@ -25,27 +25,27 @@
 
 /*****************************************************************************/
 
-#include "dng_color_space.h"
-#include "dng_date_time.h"
-#include "dng_exceptions.h"
-#include "dng_file_stream.h"
-#include "dng_globals.h"
-#include "dng_host.h"
-#include "dng_ifd.h"
-#include "dng_image_writer.h"
-#include "dng_info.h"
-#include "dng_linearization_info.h"
-#include "dng_mosaic_info.h"
-#include "dng_negative.h"
-#include "dng_preview.h"
-#include "dng_render.h"
-#include "dng_tag_codes.h"
-#include "dng_tag_types.h"
-#include "dng_tag_values.h"
+#include "../extern/dng_sdk/source/dng_color_space.h"
+#include "../extern/dng_sdk/source/dng_date_time.h"
+#include "../extern/dng_sdk/source/dng_exceptions.h"
+#include "../extern/dng_sdk/source/dng_file_stream.h"
+#include "../extern/dng_sdk/source/dng_globals.h"
+#include "../extern/dng_sdk/source/dng_host.h"
+#include "../extern/dng_sdk/source/dng_ifd.h"
+#include "../extern/dng_sdk/source/dng_image_writer.h"
+#include "../extern/dng_sdk/source/dng_info.h"
+#include "../extern/dng_sdk/source/dng_linearization_info.h"
+#include "../extern/dng_sdk/source/dng_mosaic_info.h"
+#include "../extern/dng_sdk/source/dng_negative.h"
+#include "../extern/dng_sdk/source/dng_preview.h"
+#include "../extern/dng_sdk/source/dng_render.h"
+#include "../extern/dng_sdk/source/dng_tag_codes.h"
+#include "../extern/dng_sdk/source/dng_tag_types.h"
+#include "../extern/dng_sdk/source/dng_tag_values.h"
 
 #if qDNGUseXMP
-#include "dng_xmp.h"
-#include "dng_xmp_sdk.h"
+#include "../extern/dng_sdk/source/dng_xmp.h"
+#include "../extern/dng_sdk/source/dng_xmp_sdk.h"
 #endif
 
 /*****************************************************************************/
