@@ -33,7 +33,8 @@ if(WIN32)
 endif()
 
 # List source files for the library
-set(DNG_VALIDATE_SRC "pydng/dng_validate.cpp")
+set(DNG_VALIDATE_SRC "pydng/dng_test.cpp"
+        pydng/dng_test.cpp)
 file(
     GLOB SRC_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit/source/XMP_ProgressTracker.cpp
