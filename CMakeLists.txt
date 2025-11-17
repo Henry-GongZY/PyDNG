@@ -29,12 +29,14 @@ include(ProcessorCount)
 # configs
 if(WIN32)
     # Windows: FIXME
-    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)    
+    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()
 
 # List source files for the library
-set(DNG_VALIDATE_SRC "pydng/dng_test.cpp"
-        pydng/dng_test.cpp)
+set(DNG_VALIDATE_SRC "pydng/main.cpp"
+    ${CMAKE_CURRENT_SOURCE_DIR}/pydng/dng.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/pydng/dng.cpp)
+
 file(
     GLOB SRC_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit/source/XMP_ProgressTracker.cpp
@@ -124,8 +126,6 @@ file(
     ${CMAKE_CURRENT_SOURCE_DIR}/extern/dng_sdk/source/*.cpp
 )
 
-# remove source of dng_validate
-list(REMOVE_ITEM SRC_FILES DNG_VALIDATE_SRC)
 # add platform-specific source files
 if(APPLE)
     list(
@@ -276,19 +276,19 @@ endif()
 ExternalProject_Add(
     libjxl
     SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/libjxl/libjxl
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} 
-               -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} 
-               -DBUILD_SHARED_LIBS=OFF 
-               -DBUILD_TESTING=OFF 
-               -DJPEGXL_ENABLE_SJPEG=OFF 
-               -DJPEGXL_ENABLE_EXAMPLES=OFF 
-               -DJPEGXL_ENABLE_TOOLS=OFF 
-               -DJPEGXL_ENABLE_BENCHMARK=OFF 
-               -DJPEGXL_ENABLE_MANPAGES=OFF 
-               -DJPEGXL_ENABLE_JPEGLI=OFF 
-               -DBROTLI_BUNDLED_MODE=ON 
-               -DHWY_ENABLE_INSTALL=OFF 
-               -DHWY_ENABLE_TESTS=OFF 
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
+               -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+               -DBUILD_SHARED_LIBS=OFF
+               -DBUILD_TESTING=OFF
+               -DJPEGXL_ENABLE_SJPEG=OFF
+               -DJPEGXL_ENABLE_EXAMPLES=OFF
+               -DJPEGXL_ENABLE_TOOLS=OFF
+               -DJPEGXL_ENABLE_BENCHMARK=OFF
+               -DJPEGXL_ENABLE_MANPAGES=OFF
+               -DJPEGXL_ENABLE_JPEGLI=OFF
+               -DBROTLI_BUNDLED_MODE=ON
+               -DHWY_ENABLE_INSTALL=OFF
+               -DHWY_ENABLE_TESTS=OFF
                -DJPEGXL_STATIC=ON
                -DJPEGXL_FORCE_SYSTEM_BROTLI=OFF
 )
@@ -338,7 +338,7 @@ target_include_directories(
 )
 
 # 添加链接目录：包括 install 目录和 libjxl 构建目录
-target_link_directories(dng PRIVATE 
+target_link_directories(dng PRIVATE
     ${CMAKE_INSTALL_PREFIX}/lib
     ${CMAKE_BINARY_DIR}/libjxl-prefix/src/libjxl-build/lib
     ${CMAKE_BINARY_DIR}/libjxl-prefix/src/libjxl-build/third_party/brotli
@@ -349,7 +349,7 @@ target_link_directories(dng PRIVATE
 if(WIN32)
     # Windows: 链接 JXL 静态库及其所有依赖
     # zlib和libjpeg源码已经直接编译到dng库中
-    target_link_libraries(dng PRIVATE 
+    target_link_libraries(dng PRIVATE
         jxl-static          # JXL 完整库（包含编码器和解码器）
         jxl_dec-static      # JXL 解码器
         jxl_threads-static  # JXL 线程支持
@@ -360,9 +360,9 @@ if(WIN32)
     )
 else()
     # Linux/macOS: 链接 JPEG 和 JXL
-    target_link_libraries(dng PRIVATE 
+    target_link_libraries(dng PRIVATE
         jpeg
-        jxl-static 
+        jxl-static
         jxl_threads-static
     )
     # zlib源码已经直接编译到dng库中，无需额外链接
@@ -384,7 +384,7 @@ if(BUILD_DNG_VALIDATE)
 
     add_executable(dng_validate
         ${DNG_VALIDATE_SRC}
-            ${DNG_VALIDATE_EXTRA_SRC}  # 加上依赖的源文件
+        ${DNG_VALIDATE_EXTRA_SRC}
     )
 
     target_compile_definitions(dng_validate PRIVATE
