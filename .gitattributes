@@ -1,0 +1,23 @@
+# Ensure line endings are consistent
+*.py text eol=lf
+*.cpp text eol=lf
+*.h text eol=lf
+*.hpp text eol=lf
+*.c text eol=lf
+*.cmake text eol=lf
+CMakeLists.txt text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.toml text eol=lf
+*.cfg text eol=lf
+*.in text eol=lf
+
+# Binary files
+*.dll binary
+*.so binary
+*.dylib binary
+*.pyd binary
+*.lib binary
+*.a binary
+*.exe binary
+

@@ -2,7 +2,9 @@
 // Created by Henrygongzy on 25-11-16.
 //
 
+#include "utils.h"
 #include "dng.h"
+
 
 
 int main() {
@@ -10,9 +12,9 @@ int main() {
 
     Dng dng;
     dng.Read(filePath, false);
-    auto m = dng.GetImage(false);
-    dng.SetImage(m, false);
+    auto m = dng.GetData(false);
+    dng.SetData(m, false);
     dng.Write("11.dng");
-
+    UTF8ToWChar(R"(123313)", 0, nullptr, 0);
     return 0;
 }

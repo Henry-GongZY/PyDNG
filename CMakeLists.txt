@@ -2,8 +2,10 @@
 cmake_minimum_required(VERSION 3.15)
 
 # default to release build except Windows
-set(CMAKE_BUILD_TYPE "Release" CACHE STRING "build type")
-set(BUILD_DNG_VALIDATE ON CACHE BOOL "Build dng_validate command")
+if(NOT DEFINED CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "build type")
+endif()
+set(BUILD_DNG_VALIDATE OFF CACHE BOOL "Build dng_validate command")
 
 # Define project name and (optional) version
 project(dng VERSION 1.7.1 DESCRIPTION "DNG SDK dynamic library" LANGUAGES C CXX)
@@ -35,7 +37,9 @@ endif()
 # List source files for the library
 set(DNG_VALIDATE_SRC "pydng/main.cpp"
     ${CMAKE_CURRENT_SOURCE_DIR}/pydng/dng.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/pydng/dng.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/pydng/dng.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/pydng/utils.h
+        pydng/pch.h)
 
 file(
     GLOB SRC_FILES
@@ -385,6 +389,7 @@ if(BUILD_DNG_VALIDATE)
     add_executable(dng_validate
         ${DNG_VALIDATE_SRC}
         ${DNG_VALIDATE_EXTRA_SRC}
+        pydng/pch.h
     )
 
     target_compile_definitions(dng_validate PRIVATE
@@ -430,3 +435,142 @@ install(TARGETS dng LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 if(BUILD_DNG_VALIDATE)
     install(TARGETS dng_validate DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif(BUILD_DNG_VALIDATE)
+
+# Python bindings with pybind11
+option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
+
+if(BUILD_PYTHON_BINDINGS)
+    find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+    
+    # Use pybind11 from extern directory (git submodule)
+    set(PYBIND11_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/pybind11")
+    
+    # Check if pybind11 submodule exists
+    if(NOT EXISTS "${PYBIND11_DIR}/CMakeLists.txt")
+        message(WARNING 
+            "pybind11 not found in extern/pybind11.\n"
+            "Please initialize the git submodule:\n"
+            "  git submodule update --init --recursive\n"
+            "Or add it manually:\n"
+            "  git submodule add -b v2.11.1 https://github.com/pybind/pybind11.git extern/pybind11\n"
+            "  git submodule update --init --recursive\n"
+            "\n"
+            "Falling back to FetchContent..."
+        )
+        # Fallback to FetchContent if submodule not available
+        find_package(pybind11 QUIET)
+        if(NOT pybind11_FOUND)
+            include(FetchContent)
+            FetchContent_Declare(
+                pybind11
+                GIT_REPOSITORY https://github.com/pybind/pybind11.git
+                GIT_TAG v2.11.1
+            )
+            FetchContent_MakeAvailable(pybind11)
+        endif()
+    else()
+        # Add pybind11 as a subdirectory
+        add_subdirectory(${PYBIND11_DIR} ${CMAKE_BINARY_DIR}/pybind11)
+        message(STATUS "Using pybind11 from submodule: ${PYBIND11_DIR}")
+    endif()
+    
+    message(STATUS "Python executable: ${Python3_EXECUTABLE}")
+    message(STATUS "Python version: ${Python3_VERSION}")
+    message(STATUS "Python include dirs: ${Python3_INCLUDE_DIRS}")
+    message(STATUS "Python libraries: ${Python3_LIBRARIES}")
+    
+    # Python extension module
+    pybind11_add_module(pydng
+        pydng/pydng_bindings.cpp
+        pydng/dng.cpp
+    )
+    
+    # Set target properties
+    set_target_properties(pydng PROPERTIES
+        CXX_STANDARD 14
+        CXX_STANDARD_REQUIRED ON
+    )
+    
+    # Include directories
+    target_include_directories(pydng PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/pydng
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/dng_sdk/source
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit/public/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit/XMPCore/third-party/expat/public/lib
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit/XMPCore/third-party/boost
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit/public/include/XMPCore/Interfaces
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit/public/include/client-glue
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/libjxl/libjxl/lib/include
+        ${Python3_INCLUDE_DIRS}
+    )
+    
+    # Compile definitions
+    target_compile_definitions(pydng PRIVATE
+        qDNGDebug=0
+        qDNGValidate=1
+        qDNGUseXMP=1
+        qDNGUseLibJPEG=1
+        qDNGUseLibJXL=1
+        AdobePrivate=1
+        BUILDING_XMPCORE_LIB=1
+        BUILDING_XMPCORE_AS_STATIC=1
+        XMP_StaticBuild=1
+        XMP_COMPONENT_INT_NAMESPACE=AdobeXMPCore_Int
+        JXL_STATIC_DEFINE=1
+    )
+    
+    if(WIN32)
+        target_compile_definitions(pydng PRIVATE qWinOS=1 WIN_ENV NOMINMAX UNICODE)
+    endif()
+    
+    # Link libraries
+    target_link_libraries(pydng PRIVATE
+        dng
+        ${Python3_LIBRARIES}
+    )
+    
+    # Link directories
+    target_link_directories(pydng PRIVATE
+        ${CMAKE_INSTALL_PREFIX}/lib
+        ${CMAKE_BINARY_DIR}/libjxl-prefix/src/libjxl-build/lib
+    )
+    
+    # Install Python module
+    # scikit-build-core will automatically detect and install Python packages
+    # Install the compiled module
+    install(TARGETS pydng
+        LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/pydng
+        RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/pydng
+    )
+    
+    # Install Python package files
+    install(FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/pydng/__init__.py
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/pydng
+    )
+    
+    # Copy to Python site-packages for development
+    if(WIN32)
+        # On Windows, copy to a local python directory
+        add_custom_command(TARGET pydng POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/python
+            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:pydng> ${CMAKE_BINARY_DIR}/python/
+            COMMENT "Copying pydng module to python directory"
+        )
+    else()
+        # On Unix, try to install to Python site-packages
+        execute_process(
+            COMMAND ${Python3_EXECUTABLE} -c "import site; print(site.getsitepackages()[0])"
+            OUTPUT_VARIABLE PYTHON_SITE_PACKAGES
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        if(PYTHON_SITE_PACKAGES)
+            message(STATUS "Python site-packages: ${PYTHON_SITE_PACKAGES}")
+            add_custom_command(TARGET pydng POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:pydng> ${PYTHON_SITE_PACKAGES}/
+                COMMENT "Copying pydng module to Python site-packages"
+            )
+        endif()
+    endif()
+endif()
