@@ -52,6 +52,7 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+**/._*
 
 # Submodules are tracked by git, so don't ignore them
 # extern/pybind11/ is a submodule and should be tracked

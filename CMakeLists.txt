@@ -271,6 +271,7 @@ else()
     ExternalProject_Add(
         libjpeg
         SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/libjpeg
+        BINARY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/libjpeg
         CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/extern/libjpeg/configure --prefix=${CMAKE_INSTALL_PREFIX}
         BUILD_COMMAND make -j${N}
     )
@@ -319,11 +320,12 @@ endif()
 # platform-specific donfigs
 if(APPLE)
     target_compile_definitions(dng PUBLIC qMacOS=1 MAC_ENV XMP_64=1)
+    target_compile_options(dng PUBLIC -Wno-implicit-function-declaration)
     target_link_libraries(dng PRIVATE "-framework CoreServices")
 elseif(WIN32)
     target_compile_definitions(dng PUBLIC qWinOS=1 WIN_ENV NOMINMAX UNICODE)
 else()  # UNIX/Linux
-    target_compile_options(dng PUBLIC -fPIC -Wall -Wextra)
+    target_compile_options(dng PUBLIC -fPIC -Wall -Wextra -Wno-implicit-function-declaration)
     target_compile_definitions(dng PUBLIC qLinux=1 UNIX_ENV XMP_64=1)
 endif()
 
@@ -363,11 +365,15 @@ if(WIN32)
         brotlicommon-static # Brotli 公共部分
     )
 else()
-    # Linux/macOS: 链接 JPEG 和 JXL
+    # Linux/macOS: 链接已安装的库（使用完整路径避免UTILITY target错误）
     target_link_libraries(dng PRIVATE
-        jpeg
-        jxl-static
-        jxl_threads-static
+        ${CMAKE_INSTALL_PREFIX}/lib/libjpeg.a
+        ${CMAKE_INSTALL_PREFIX}/lib/libjxl.a
+        ${CMAKE_INSTALL_PREFIX}/lib/libjxl_threads.a
+        ${CMAKE_BINARY_DIR}/libjxl-prefix/src/libjxl-build/third_party/brotli/libbrotlidec-static.a
+        ${CMAKE_BINARY_DIR}/libjxl-prefix/src/libjxl-build/third_party/brotli/libbrotlienc-static.a
+        ${CMAKE_BINARY_DIR}/libjxl-prefix/src/libjxl-build/third_party/brotli/libbrotlicommon-static.a
+        ${CMAKE_BINARY_DIR}/libjxl-prefix/src/libjxl-build/third_party/highway/libhwy.a
     )
     # zlib源码已经直接编译到dng库中，无需额外链接
 endif()
