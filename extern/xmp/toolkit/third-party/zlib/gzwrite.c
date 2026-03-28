@@ -4,7 +4,6 @@
  */
 
 #include "gzguts.h"
-#include <unistd.h>
 
 
 /* Local functions */

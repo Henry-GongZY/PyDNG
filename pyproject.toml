@@ -1,0 +1,29 @@
+[build-system]
+requires = ["scikit-build-core>=0.11,<0.12"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pydng"
+version = "0.1.0"
+description = "Python bindings for Adobe DNG SDK"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=1.15.0",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Multimedia :: Graphics",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: C++",
+]
+
+[tool.scikit-build]
+minimum-version = "0.10"
+cmake.build-type = "Release"
