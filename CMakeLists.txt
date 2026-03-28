@@ -364,11 +364,26 @@ if(WIN32)
     )
 else()
     # Linux/macOS: 链接 JPEG 和 JXL
-    target_link_libraries(dng PRIVATE
-        jpeg
-        jxl-static
-        jxl_threads-static
-    )
+    # Linux: libjxl 静态库产物为 libjxl.a / libjxl_threads.a（OUTPUT_NAME jxl / jxl_threads）
+    # macOS: 保持 jxl-static / jxl_threads-static（已验证可编译）
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        # 与 Windows 一致：libjxl 静态库依赖 Highway / Brotli，链进共享库时必须显式链入，否则会出现未定义符号（如 BrotliDecoderErrorString）
+        target_link_libraries(dng PRIVATE
+            jpeg
+            jxl
+            jxl_threads
+            hwy
+            brotlienc-static
+            brotlidec-static
+            brotlicommon-static
+        )
+    else()
+        target_link_libraries(dng PRIVATE
+            jpeg
+            jxl-static
+            jxl_threads-static
+        )
+    endif()
     # zlib源码已经直接编译到dng库中，无需额外链接
 endif()
 
@@ -547,6 +562,9 @@ if(BUILD_PYTHON_BINDINGS)
     # Install Python package files
     install(FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/pydng/__init__.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/pydng/__init__.pyi
+        ${CMAKE_CURRENT_SOURCE_DIR}/pydng/pydng.pyi
+        ${CMAKE_CURRENT_SOURCE_DIR}/pydng/py.typed
         DESTINATION ${CMAKE_INSTALL_PREFIX}/pydng
     )
     
@@ -559,17 +577,19 @@ if(BUILD_PYTHON_BINDINGS)
             COMMENT "Copying pydng module to python directory"
         )
     else()
-        # On Unix, try to install to Python site-packages
+        # On Unix, copy to user site-packages (writable without sudo).
+        # getsitepackages()[0] is often system dir (e.g. /usr/local/...) and fails for normal users.
         execute_process(
-            COMMAND ${Python3_EXECUTABLE} -c "import site; print(site.getsitepackages()[0])"
+            COMMAND ${Python3_EXECUTABLE} -c "import site; print(site.getusersitepackages())"
             OUTPUT_VARIABLE PYTHON_SITE_PACKAGES
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
         if(PYTHON_SITE_PACKAGES)
-            message(STATUS "Python site-packages: ${PYTHON_SITE_PACKAGES}")
+            message(STATUS "Python user site-packages (POST_BUILD copy): ${PYTHON_SITE_PACKAGES}")
             add_custom_command(TARGET pydng POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E make_directory ${PYTHON_SITE_PACKAGES}
                 COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:pydng> ${PYTHON_SITE_PACKAGES}/
-                COMMENT "Copying pydng module to Python site-packages"
+                COMMENT "Copying pydng module to Python user site-packages"
             )
         endif()
     endif()

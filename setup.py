@@ -25,4 +25,7 @@ setup(
     install_requires=[
         "numpy>=1.15.0",
     ],
+    package_data={
+        "pydng": ["py.typed", "__init__.pyi", "pydng.pyi"],
+    },
 )
