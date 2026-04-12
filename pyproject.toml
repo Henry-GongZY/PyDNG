@@ -27,3 +27,5 @@ classifiers = [
 [tool.scikit-build]
 minimum-version = "0.10"
 cmake.build-type = "Release"
+# Default wheel.packages probes ``src/`` first; pure Python lives in ``src/pydng``.
+wheel.packages = { pydng = "src/pydng" }

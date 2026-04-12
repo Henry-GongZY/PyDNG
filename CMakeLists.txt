@@ -25,6 +25,9 @@ if(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()
 
+set(PYDNG_PY_PKG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/pydng)
+set(PYDNG_BINDINGS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/bindings)
+
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/PyDNGSources.cmake)
 
 # XMP headers: Adobe code uses #if _MSC_VER <= 1600; undefined _MSC_VER is treated as 0 → broken std::tr1 on MinGW.
@@ -225,11 +228,11 @@ if(BUILD_PYTHON_BINDINGS)
         add_subdirectory(${PYBIND11_DIR} ${CMAKE_BINARY_DIR}/pybind11)
     endif()
 
-    pybind11_add_module(pydng pydng/pydng_bindings.cpp pydng/dng.cpp)
-    set_target_properties(pydng PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
+    pybind11_add_module(_native ${PYDNG_BINDINGS_DIR}/pydng_bindings.cpp ${PYDNG_BINDINGS_DIR}/dng.cpp)
+    set_target_properties(_native PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
 
-    target_include_directories(pydng PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/pydng
+    target_include_directories(_native PRIVATE
+        ${PYDNG_BINDINGS_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/dng_sdk/source
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit/public/include
@@ -241,7 +244,7 @@ if(BUILD_PYTHON_BINDINGS)
         ${Python3_INCLUDE_DIRS}
     )
 
-    target_compile_definitions(pydng PRIVATE
+    target_compile_definitions(_native PRIVATE
         qDNGDebug=0
         qDNGValidate=1
         qDNGUseXMP=1
@@ -255,29 +258,30 @@ if(BUILD_PYTHON_BINDINGS)
         JXL_STATIC_DEFINE=1
     )
     if(WIN32)
-        target_compile_definitions(pydng PRIVATE qWinOS=1 WIN_ENV NOMINMAX UNICODE)
+        target_compile_definitions(_native PRIVATE qWinOS=1 WIN_ENV NOMINMAX UNICODE)
     endif()
-    pydng_windows_gnu_xmp_fix(pydng)
+    pydng_windows_gnu_xmp_fix(_native)
 
-    target_link_libraries(pydng PRIVATE dng ${Python3_LIBRARIES})
-    target_link_directories(pydng PRIVATE ${CMAKE_INSTALL_PREFIX}/lib ${JXL_BUILD_DIR}/lib)
+    target_link_libraries(_native PRIVATE dng ${Python3_LIBRARIES})
+    target_link_directories(_native PRIVATE ${CMAKE_INSTALL_PREFIX}/lib ${JXL_BUILD_DIR}/lib)
 
-    install(TARGETS pydng
+    install(TARGETS _native
         LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/pydng
         RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/pydng
     )
     install(FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/pydng/__init__.py
-        ${CMAKE_CURRENT_SOURCE_DIR}/pydng/__init__.pyi
-        ${CMAKE_CURRENT_SOURCE_DIR}/pydng/pydng.pyi
-        ${CMAKE_CURRENT_SOURCE_DIR}/pydng/py.typed
+        ${PYDNG_PY_PKG_DIR}/__init__.py
+        ${PYDNG_PY_PKG_DIR}/__init__.pyi
+        ${PYDNG_PY_PKG_DIR}/_native.pyi
+        ${PYDNG_PY_PKG_DIR}/py.typed
         DESTINATION ${CMAKE_INSTALL_PREFIX}/pydng
     )
 
     if(WIN32)
-        add_custom_command(TARGET pydng POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/python
-            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:pydng> ${CMAKE_BINARY_DIR}/python/
+        add_custom_command(TARGET _native POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/python/pydng
+            COMMAND ${CMAKE_COMMAND} -E copy_directory ${PYDNG_PY_PKG_DIR} ${CMAKE_BINARY_DIR}/python/pydng
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:_native> ${CMAKE_BINARY_DIR}/python/pydng/
         )
     else()
         execute_process(
@@ -286,9 +290,10 @@ if(BUILD_PYTHON_BINDINGS)
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
         if(PYTHON_SITE_PACKAGES)
-            add_custom_command(TARGET pydng POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E make_directory ${PYTHON_SITE_PACKAGES}
-                COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:pydng> ${PYTHON_SITE_PACKAGES}/
+            add_custom_command(TARGET _native POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E make_directory ${PYTHON_SITE_PACKAGES}/pydng
+                COMMAND ${CMAKE_COMMAND} -E copy_directory ${PYDNG_PY_PKG_DIR} ${PYTHON_SITE_PACKAGES}/pydng
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:_native> ${PYTHON_SITE_PACKAGES}/pydng/
             )
         endif()
     endif()

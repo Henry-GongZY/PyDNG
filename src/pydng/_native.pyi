@@ -1,6 +1,5 @@
 """
-Type stubs for the compiled pydng module (internal)
-This file provides type hints for the C++ extension module.
+Type stubs for the compiled ``pydng._native`` extension (pybind11).
 """
 
 from typing import Any
