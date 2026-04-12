@@ -21,6 +21,10 @@ This project provides fundamental Python bindings for the Adobe DNG SDK so you c
   - `debug/` — `main.cpp` (local debug / reference entry point)
 - `extern/` — vendored SDKs and third-party code (DNG SDK, XMP, libjxl, pybind11, etc.).
 
+### CI packaging
+
+On pushes and pull requests, [GitHub Actions](.github/workflows/build.yml) builds packages with Python 3.11: **Linux** produces the sdist and a Linux wheel (**pydng-dist-linux-py311**); **Windows** (MSVC x64) produces a Windows wheel (**pydng-dist-windows-py311**). In the workflow run, open **Summary → Artifacts** to download them. Ensure submodules are initialized (`extern/pybind11`).
+
 ## Quick start
 
 ### Install with pip (recommended)
