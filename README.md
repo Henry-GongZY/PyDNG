@@ -15,7 +15,10 @@ This project provides fundamental Python bindings for the Adobe DNG SDK so you c
 ## Repository layout
 
 - `src/pydng/` — installable Python package (`__init__.py`, type stubs, `py.typed`).
-- `bindings/` — C++ sources for the pybind11 extension (`_native`), shared with the optional `dng_validate` tool.
+- `bindings/` — C++ layer for the pybind11 extension (`_native`) and optional `dng_validate`:
+  - `include/` — headers (`dng.h`, `utils.h`, `pch.h`)
+  - `src/` — `pydng_bindings.cpp`, `dng.cpp`
+  - `debug/` — `main.cpp` (local debug / reference entry point)
 - `extern/` — vendored SDKs and third-party code (DNG SDK, XMP, libjxl, pybind11, etc.).
 
 ## Quick start
@@ -82,21 +85,21 @@ On Unix, the module may also be copied to your user site-packages by the build; 
 import pydng
 import numpy as np
 
-dng = pydng.Dng()
+# Load from path (raises RuntimeError on failure)
+dng = pydng.Dng("input.dng", ignore_enhanced=False)
 
-error_code = dng.read("input.dng", ignore_enhanced=False)
+meta = dng.get_meta()
+print(f"Camera: {meta.make} {meta.model}")
+print(f"Image size: {meta.width} x {meta.height}")
+print(f"ISO: {meta.iso}")
+print(f"Exposure time: {meta.exposure_time} s")
 
-if error_code == pydng.ErrorCode.NONE:
-    meta = dng.get_meta()
-    print(f"Camera: {meta.make} {meta.model}")
-    print(f"Image size: {meta.width} x {meta.height}")
-    print(f"ISO: {meta.iso}")
-    print(f"Exposure time: {meta.exposure_time} s")
-
-    data = dng.get_data(enhanced=False)
-    numpy_array = data.to_numpy()
-    print(f"Image shape: {numpy_array.shape}")
+data = dng.get_data(enhanced=False)
+numpy_array = data.to_numpy()
+print(f"Image shape: {numpy_array.shape}")
 ```
+
+You can still use `dng = pydng.Dng()` followed by `dng.read(path)` if you prefer checking `ErrorCode` instead of exceptions.
 
 ### Write a DNG
 
@@ -133,10 +136,21 @@ error_code = dng.write("output.dng")
 
 Main entry point for reading and writing DNG files.
 
+#### Constructor
+
+- `Dng()` — empty object; use `read()` to load a file.
+- `Dng(path: str, ignore_enhanced: bool = False)` — load `path` immediately; raises `RuntimeError` on failure (same behavior as `read()` returning a non-`NONE` code).
+
 #### Methods
 
+- `get_bayer_pattern() -> str`  
+  For a 2×2 rectangular RGB CFA, returns `"RGGB"`, `"GRBG"`, `"BGGR"`, or `"GBRG"` (row-major tile); otherwise `""`.
+
+- `set_bayer_pattern(pattern: str) -> None`  
+  Sets the 2×2 Bayer phase; `pattern` must be one of those four strings (case-insensitive). Requires a 3-plane RGB CFA (or uninitialized mosaic, which is initialized with `SetRGB()`).
+
 - `read(path: str, ignore_enhanced: bool = False) -> ErrorCode`  
-  Load a DNG from disk.
+  Load a DNG from disk (return code; no exception on error).
 
 - `write(path: str) -> ErrorCode`  
   Save a DNG to disk.

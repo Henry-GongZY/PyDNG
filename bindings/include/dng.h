@@ -5,6 +5,8 @@
 #ifndef DNG_H
 #define DNG_H
 
+#include <string>
+
 #include "pch.h"
 
 // DNG 图像数据
@@ -63,6 +65,10 @@ struct Dng {
     AutoPtr<dng_negative> negative;
 
 public:
+    Dng() = default;
+    /// Load a DNG from disk (equivalent to default constructor then Read). Throws on failure.
+    explicit Dng(const std::string& path, bool ignore_enhanced = false);
+
     int Read(const std::string&, bool);
     int Write(const std::string&);
 
@@ -77,6 +83,12 @@ public:
     DngMeta *GetMeta() const;
 
     void SetMeta(const DngMeta *meta);
+
+    /// Row-major 2×2 Bayer tile as "RGGB" / "GRBG" / "BGGR" / "GBRG", or empty if unavailable / not 2×2 RGB CFA.
+    std::string GetBayerPattern() const;
+
+    /// Set standard 2×2 Bayer phase from the same four strings (case-insensitive). Requires RGB CFA semantics; may call SetRGB() when mosaic planes are not yet set.
+    void SetBayerPattern(const std::string &pattern);
 };
 
 

@@ -26,8 +26,8 @@ if(WIN32)
 endif()
 
 set(PYDNG_PY_PKG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/pydng)
-set(PYDNG_BINDINGS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/bindings)
-
+get_filename_component(PYDNG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/PyDNGBindings.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/PyDNGSources.cmake)
 
 # XMP headers: Adobe code uses #if _MSC_VER <= 1600; undefined _MSC_VER is treated as 0 → broken std::tr1 on MinGW.
@@ -228,11 +228,11 @@ if(BUILD_PYTHON_BINDINGS)
         add_subdirectory(${PYBIND11_DIR} ${CMAKE_BINARY_DIR}/pybind11)
     endif()
 
-    pybind11_add_module(_native ${PYDNG_BINDINGS_DIR}/pydng_bindings.cpp ${PYDNG_BINDINGS_DIR}/dng.cpp)
+    pybind11_add_module(_native ${PYDNG_BINDINGS_SOURCES})
     set_target_properties(_native PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
 
     target_include_directories(_native PRIVATE
-        ${PYDNG_BINDINGS_DIR}
+        ${PYDNG_BINDINGS_INCLUDE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/dng_sdk/source
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit/public/include
