@@ -4,10 +4,21 @@
 
 #include "dng.h"
 #include "utils.h"
+#include <cctype>
+#include <stdexcept>
+#include <string>
 
 // 前向声明工具函数
 std::string DNGStringToStdString(const dng_string& dngStr);
 double DNGRationalToDouble(const dng_urational& rational);
+
+Dng::Dng(const std::string& path, bool ignore_enhanced) {
+    const int err = Read(path, ignore_enhanced);
+    if (err != dng_error_none) {
+        throw std::runtime_error(
+            "Dng: failed to read \"" + path + "\" (error code " + std::to_string(err) + ")");
+    }
+}
 
 int Dng::Read(const std::string &path, bool ignore_enhanced) {
     try {
@@ -254,4 +265,74 @@ DngMeta* Dng::GetMeta() const {
 
 void Dng::SetMeta(const DngMeta* meta) {
 
+}
+
+namespace {
+
+char ColorKeyToBayerChar(uint8 key) {
+    if (key == colorKeyRed) return 'R';
+    if (key == colorKeyGreen) return 'G';
+    if (key == colorKeyBlue) return 'B';
+    return 0;
+}
+
+uint32_t BayerStringToPhase(const std::string &p) {
+    if (p.size() != 4) return static_cast<uint32_t>(-1);
+    std::string u;
+    u.reserve(4);
+    for (char c : p) {
+        if (!std::isalpha(static_cast<unsigned char>(c))) return static_cast<uint32_t>(-1);
+        u.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
+    }
+    if (u == "RGGB") return 1;
+    if (u == "GRBG") return 0;
+    if (u == "BGGR") return 2;
+    if (u == "GBRG") return 3;
+    return static_cast<uint32_t>(-1);
+}
+
+} // namespace
+
+std::string Dng::GetBayerPattern() const {
+    if (!negative.Get()) return "";
+    const dng_mosaic_info *mosaic = negative->GetMosaicInfo();
+    if (!mosaic || !mosaic->IsColorFilterArray()) return "";
+    if (mosaic->fCFAPatternSize.v != 2 || mosaic->fCFAPatternSize.h != 2) return "";
+    if (mosaic->fCFALayout != 1) return "";
+
+    std::string out;
+    out.reserve(4);
+    for (int32 j = 0; j < 2; ++j) {
+        for (int32 k = 0; k < 2; ++k) {
+            const uint8 planeIdx = mosaic->fCFAPattern[j][k];
+            if (planeIdx >= mosaic->fColorPlanes) return "";
+            const uint8 key = mosaic->fCFAPlaneColor[planeIdx];
+            const char ch = ColorKeyToBayerChar(key);
+            if (ch == 0) return "";
+            out += ch;
+        }
+    }
+    return out;
+}
+
+void Dng::SetBayerPattern(const std::string &pattern) {
+    if (!negative.Get()) {
+        throw std::runtime_error("Dng::SetBayerPattern: no image loaded");
+    }
+    const uint32_t phase = BayerStringToPhase(pattern);
+    if (phase == static_cast<uint32_t>(-1)) {
+        throw std::invalid_argument(
+            "SetBayerPattern: expected one of RGGB, GRBG, BGGR, GBRG (2x2 Bayer, R/G/B only)");
+    }
+
+    // NeedMosaicInfo() is protected on dng_negative; SetRGB() / SetBayerMosaic() call it internally.
+    const dng_mosaic_info *mosaic = negative->GetMosaicInfo();
+    if (!mosaic || mosaic->fColorPlanes == 0) {
+        negative->SetRGB();
+    } else if (mosaic->fColorPlanes != 3) {
+        throw std::invalid_argument(
+            "SetBayerPattern: requires a 3-plane RGB CFA (or empty mosaic); use a file with standard Bayer metadata");
+    }
+
+    negative->SetBayerMosaic(phase);
 }

@@ -195,6 +195,10 @@ PYBIND11_MODULE(_native, m) {
     // Dng class
     py::class_<Dng>(m, "Dng")
         .def(py::init<>())
+        .def(py::init<const std::string&, bool>(),
+             py::arg("path"),
+             py::arg("ignore_enhanced") = false,
+             "Load a DNG from path (same as Dng() then read). Raises RuntimeError on failure.")
         .def("read", &Dng::Read, 
              py::arg("path"), 
              py::arg("ignore_enhanced") = false,
@@ -242,6 +246,11 @@ PYBIND11_MODULE(_native, m) {
         }, "Get metadata from DNG file")
         .def("set_meta", &Dng::SetMeta,
              py::arg("meta"),
-             "Set metadata for DNG file");
+             "Set metadata for DNG file")
+        .def("get_bayer_pattern", &Dng::GetBayerPattern,
+             "Return 2x2 Bayer tile as RGGB/GRBG/BGGR/GBRG, or empty string if not available")
+        .def("set_bayer_pattern", &Dng::SetBayerPattern,
+             py::arg("pattern"),
+             "Set 2x2 Bayer phase; pattern must be RGGB, GRBG, BGGR, or GBRG (case-insensitive)");
 }
 

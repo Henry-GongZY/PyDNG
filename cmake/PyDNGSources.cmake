@@ -21,13 +21,7 @@ set(LIBJPEG_WIN_SRCS
 )
 list(TRANSFORM LIBJPEG_WIN_SRCS PREPEND "${_J}/")
 
-set(DNG_VALIDATE_SRC
-    ${PYDNG_ROOT}/bindings/main.cpp
-    ${PYDNG_ROOT}/bindings/dng.h
-    ${PYDNG_ROOT}/bindings/dng.cpp
-    ${PYDNG_ROOT}/bindings/utils.h
-    ${PYDNG_ROOT}/bindings/pch.h
-)
+# DNG_VALIDATE_SRC is defined in cmake/PyDNGBindings.cmake (include before this file).
 
 file(
     GLOB SRC_FILES

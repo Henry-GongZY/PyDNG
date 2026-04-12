@@ -17,17 +17,12 @@ except ImportError:
 
 def read_dng_example(file_path):
     """Read a DNG file and display its information"""
-    
-    # Create Dng object
-    dng = pydng.Dng()
-    
-    # Read the DNG file
-    error_code = dng.read(file_path, ignore_enhanced=False)
-    
-    if error_code != pydng.ErrorCode.NONE:
-        print(f"Error reading DNG file: {error_code}")
+    try:
+        dng = pydng.Dng(file_path, ignore_enhanced=False)
+    except RuntimeError as e:
+        print(f"Error reading DNG file: {e}")
         return
-    
+
     print("Successfully read DNG file!")
     print()
     

@@ -2,7 +2,7 @@
 Type stubs for PyDNG Python bindings
 """
 
-from typing import Any
+from typing import Any, overload
 from numpy.typing import NDArray
 
 __version__: str
@@ -83,11 +83,17 @@ class DngData:
 
 class Dng:
     """Main class for reading and writing DNG files"""
-    
+
+    @overload
     def __init__(self) -> None:
-        """Create a new Dng object"""
+        """Create an empty Dng object; call read() to load a file."""
         ...
-    
+
+    @overload
+    def __init__(self, path: str, ignore_enhanced: bool = False) -> None:
+        """Load a DNG from ``path``. Raises ``RuntimeError`` if reading fails."""
+        ...
+
     def read(self, path: str, ignore_enhanced: bool = False) -> ErrorCodeType:
         """
         Read a DNG file from disk.
@@ -188,6 +194,21 @@ class Dng:
         
         Args:
             meta: DngMeta object containing metadata to set
+        """
+        ...
+
+    def get_bayer_pattern(self) -> str:
+        """2×2 Bayer tile as ``RGGB`` / ``GRBG`` / ``BGGR`` / ``GBRG``, or ``\"\"`` if not a 2×2 RGB CFA."""
+        ...
+
+    def set_bayer_pattern(self, pattern: str) -> None:
+        """
+        Set the 2×2 Bayer phase. ``pattern`` must be one of
+        ``RGGB``, ``GRBG``, ``BGGR``, ``GBRG`` (case-insensitive).
+
+        Raises:
+            ValueError: Invalid pattern or unsupported CFA plane count.
+            RuntimeError: No image loaded.
         """
         ...
 
