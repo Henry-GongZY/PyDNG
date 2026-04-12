@@ -12,6 +12,12 @@ This project provides fundamental Python bindings for the Adobe DNG SDK so you c
 - Read and write baseline exposure
 - Works naturally with NumPy
 
+## Repository layout
+
+- `src/pydng/` — installable Python package (`__init__.py`, type stubs, `py.typed`).
+- `bindings/` — C++ sources for the pybind11 extension (`_native`), shared with the optional `dng_validate` tool.
+- `extern/` — vendored SDKs and third-party code (DNG SDK, XMP, libjxl, pybind11, etc.).
+
 ## Quick start
 
 ### Install with pip (recommended)
@@ -54,7 +60,7 @@ cmake .. -DBUILD_PYTHON_BINDINGS=ON
 cmake --build . --config Release
 ```
 
-The built Python extension ends up under the build tree (e.g. `build/python/` depending on your CMake settings).
+The built extension and copied pure-Python package end up under `build/python/pydng/` (add that folder’s parent, `build/python`, to `PYTHONPATH` for ad-hoc testing).
 
 ### Linux / macOS
 

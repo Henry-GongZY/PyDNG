@@ -22,11 +22,11 @@ set(LIBJPEG_WIN_SRCS
 list(TRANSFORM LIBJPEG_WIN_SRCS PREPEND "${_J}/")
 
 set(DNG_VALIDATE_SRC
-    ${PYDNG_ROOT}/pydng/main.cpp
-    ${PYDNG_ROOT}/pydng/dng.h
-    ${PYDNG_ROOT}/pydng/dng.cpp
-    ${PYDNG_ROOT}/pydng/utils.h
-    ${PYDNG_ROOT}/pydng/pch.h
+    ${PYDNG_ROOT}/bindings/main.cpp
+    ${PYDNG_ROOT}/bindings/dng.h
+    ${PYDNG_ROOT}/bindings/dng.cpp
+    ${PYDNG_ROOT}/bindings/utils.h
+    ${PYDNG_ROOT}/bindings/pch.h
 )
 
 file(

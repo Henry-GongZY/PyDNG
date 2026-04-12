@@ -131,8 +131,8 @@ DngData* NumpyToDngDataImpl(py::array_t<T> arr, uint32_t pixel_type) {
     return data;
 }
 
-PYBIND11_MODULE(pydng, m) {
-    m.doc() = "PyDNG: Python bindings for Adobe DNG SDK";
+PYBIND11_MODULE(_native, m) {
+    m.doc() = "PyDNG: low-level C++ extension (internal)";
     
     // Error codes (dng_error_code is a typedef int32, not an enum)
     // Create a simple ErrorCode class for convenience
