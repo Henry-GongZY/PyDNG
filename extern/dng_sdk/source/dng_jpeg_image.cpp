@@ -149,7 +149,7 @@ void dng_compressed_image_tiles::EncodeTiles (dng_host &host,
 	
 	#if qDNGValidate
 	
-	char message [256];
+	char message [256] = {0};
 	
 	dng_timer timer (message);
 	

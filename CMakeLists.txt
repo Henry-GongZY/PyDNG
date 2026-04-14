@@ -56,9 +56,7 @@ target_include_directories(dng PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit/public/include/XMPCore/Interfaces
     ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit/public/include/client-glue
 )
-if(WIN32)
-    target_include_directories(dng PRIVATE ${LIBJPEG_DIR})
-endif()
+target_include_directories(dng PRIVATE ${LIBJPEG_DIR})
 
 if(NOT WIN32)
     ProcessorCount(N)
@@ -66,9 +64,12 @@ if(NOT WIN32)
         libjpeg
         SOURCE_DIR ${LIBJPEG_DIR}
         BINARY_DIR ${LIBJPEG_DIR}
-        # Invoke via ``sh`` so checkout without +x on ``configure`` (e.g. GitHub Actions) still works.
-        CONFIGURE_COMMAND sh ${LIBJPEG_DIR}/configure --prefix=${CMAKE_INSTALL_PREFIX}
+        # -fPIC：静态库要链进 libdng.so，对象须为位置无关代码，否则 ld 报 R_X86_64_PC32 / recompile with -fPIC
+        CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env "CFLAGS=-fPIC -O2" "CXXFLAGS=-fPIC -O2" sh ${LIBJPEG_DIR}/configure --prefix=${CMAKE_INSTALL_PREFIX}
         BUILD_COMMAND make -j${N}
+        # 声明 autotools 在源码树 .libs 下生成的静态库，否则 Ninja 认为链接输入无生成规则（missing and no known rule）
+        BUILD_BYPRODUCTS ${LIBJPEG_DIR}/.libs/libjpeg.a
+        INSTALL_COMMAND ""
     )
 endif()
 
@@ -151,8 +152,9 @@ set(PYDNG_JXL_LIBS
 if(WIN32)
     target_link_libraries(dng PRIVATE ${PYDNG_JXL_LIBS})
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # 链入 libjpeg.a，避免 -ljpeg 走到 libjpeg.so 导致 libdng.so 运行时依赖 libjpeg.so.9（wheel/venv 中通常不存在）
     target_link_libraries(dng PRIVATE
-        jpeg
+        ${LIBJPEG_DIR}/.libs/libjpeg.a
         jxl
         jxl_threads
         hwy
@@ -245,6 +247,17 @@ if(BUILD_PYTHON_BINDINGS)
 
     pybind11_add_module(_native ${PYDNG_BINDINGS_SOURCES})
     set_target_properties(_native PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
+    # Wheel 将 libdng 装在 site-packages/lib/、扩展在 site-packages/pydng/；若 RUNPATH 为构建目录的绝对路径，
+    # 安装后该路径不存在会导致 ImportError。使用相对 RUNPATH 指向与 pydng 同级的 lib/。
+    if(APPLE)
+        set_target_properties(_native PROPERTIES
+            INSTALL_RPATH "@loader_path/../lib"
+            BUILD_RPATH "${CMAKE_BINARY_DIR}")
+    elseif(UNIX)
+        set_target_properties(_native PROPERTIES
+            INSTALL_RPATH "\$ORIGIN/../lib"
+            BUILD_RPATH "${CMAKE_BINARY_DIR}")
+    endif()
 
     target_include_directories(_native PRIVATE
         ${PYDNG_BINDINGS_INCLUDE_DIR}
@@ -300,13 +313,26 @@ if(BUILD_PYTHON_BINDINGS)
             COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:_native> ${CMAKE_BINARY_DIR}/python/pydng/
         )
     else()
+        # 与 wheel 一致：libdng 在 lib/、包在 pydng/，配合 INSTALL_RPATH $ORIGIN/../lib
+        # 使用 cmake -P 复制 libdng.so*（含 symlink），避免 Ninja+sh 下 bash/shopt/cp 解析失败
         execute_process(
             COMMAND ${Python3_EXECUTABLE} -c "import site; print(site.getusersitepackages())"
             OUTPUT_VARIABLE PYTHON_SITE_PACKAGES
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
+        set(_copy_libdng_script ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CopyLibDngLibs.cmake)
+        add_custom_command(TARGET _native POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -DBIN_DIR=$<TARGET_FILE_DIR:dng> -DDEST=${CMAKE_BINARY_DIR}/python/lib
+                -P ${_copy_libdng_script}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/python/pydng
+            COMMAND ${CMAKE_COMMAND} -E copy_directory ${PYDNG_PY_PKG_DIR} ${CMAKE_BINARY_DIR}/python/pydng
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:_native> ${CMAKE_BINARY_DIR}/python/pydng/
+            COMMENT "Staging pydng (build/python/{lib,pydng}) for local PYTHONPATH"
+        )
         if(PYTHON_SITE_PACKAGES)
             add_custom_command(TARGET _native POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -DBIN_DIR=$<TARGET_FILE_DIR:dng> -DDEST=${PYTHON_SITE_PACKAGES}/lib
+                    -P ${_copy_libdng_script}
                 COMMAND ${CMAKE_COMMAND} -E make_directory ${PYTHON_SITE_PACKAGES}/pydng
                 COMMAND ${CMAKE_COMMAND} -E copy_directory ${PYDNG_PY_PKG_DIR} ${PYTHON_SITE_PACKAGES}/pydng
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:_native> ${PYTHON_SITE_PACKAGES}/pydng/
