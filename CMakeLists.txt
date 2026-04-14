@@ -4,6 +4,8 @@ if(NOT DEFINED CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type")
 endif()
 set(BUILD_DNG_VALIDATE OFF CACHE BOOL "Build dng_validate executable")
+# Declare early so the dng install rules below can test it safely.
+option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
 
 project(dng VERSION 1.7.1 DESCRIPTION "DNG SDK shared library" LANGUAGES C CXX)
 
@@ -64,7 +66,8 @@ if(NOT WIN32)
         libjpeg
         SOURCE_DIR ${LIBJPEG_DIR}
         BINARY_DIR ${LIBJPEG_DIR}
-        CONFIGURE_COMMAND ${LIBJPEG_DIR}/configure --prefix=${CMAKE_INSTALL_PREFIX}
+        # Invoke via ``sh`` so checkout without +x on ``configure`` (e.g. GitHub Actions) still works.
+        CONFIGURE_COMMAND sh ${LIBJPEG_DIR}/configure --prefix=${CMAKE_INSTALL_PREFIX}
         BUILD_COMMAND make -j${N}
     )
 endif()
@@ -204,12 +207,24 @@ endif()
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/extern/dng_sdk/source/
         DESTINATION include/dng FILES_MATCHING PATTERN "*.h")
-install(TARGETS dng LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+# On Windows the DLL (RUNTIME artifact) defaults to bin/. When building the Python package we need dng.dll
+# next to _native.pyd inside pydng/ so Python 3.8+ add_dll_directory() can resolve it at runtime.
+if(WIN32)
+    if(BUILD_PYTHON_BINDINGS)
+        install(TARGETS dng
+            RUNTIME DESTINATION pydng
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    else()
+        install(TARGETS dng
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    endif()
+else()
+    install(TARGETS dng LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+endif()
 if(BUILD_DNG_VALIDATE)
     install(TARGETS dng_validate DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
-
-option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
 
 if(BUILD_PYTHON_BINDINGS)
     find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
@@ -281,6 +296,7 @@ if(BUILD_PYTHON_BINDINGS)
         add_custom_command(TARGET _native POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/python/pydng
             COMMAND ${CMAKE_COMMAND} -E copy_directory ${PYDNG_PY_PKG_DIR} ${CMAKE_BINARY_DIR}/python/pydng
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:dng> ${CMAKE_BINARY_DIR}/python/pydng/
             COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:_native> ${CMAKE_BINARY_DIR}/python/pydng/
         )
     else()
