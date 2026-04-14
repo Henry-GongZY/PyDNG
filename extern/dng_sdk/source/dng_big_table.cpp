@@ -1217,7 +1217,7 @@ void dng_big_table::ASCIItoBinary (dng_memory_allocator &allocator,
 	dBlock.Reset (allocator.Allocate (maxDecodedSize));
 
 	uint32 phase = 0;
-	uint32 value;
+	uint32 value = 0;
 
 	uint8 *dPtr = dBlock->Buffer_uint8 ();
 
