@@ -1,4 +1,4 @@
-# Build wheels (Linux + Windows, Python 3.10) and sdist; artifact upload; publish .whl to GitHub Packages on main/master (non-PR).
+# Build wheels (Linux + Windows, Python 3.10) and sdist; artifact upload; attach wheels to GitHub Release when a release is published.
 name: Build
 
 on:
@@ -15,7 +15,6 @@ concurrency:
 
 permissions:
   contents: read
-  packages: write
   actions: write
 
 env:
@@ -122,18 +121,15 @@ jobs:
           path: dist/*.whl
           if-no-files-found: error
 
-  # PyPI-compatible GitHub Packages registry: publish merged wheels from Linux + Windows builds.
-  publish-github-packages:
-    name: Publish to GitHub Packages
+  # Attach built wheels (and sdist from Linux) to the Release that triggered this workflow.
+  release-assets:
+    name: Upload to GitHub Release
     needs: [linux-wheel, windows-wheel]
     runs-on: ubuntu-latest
-    if: |
-      success() &&
-      github.event_name != 'pull_request' &&
-      (github.ref == 'refs/heads/main' ||
-       github.ref == 'refs/heads/master' ||
-       github.event_name == 'workflow_dispatch' ||
-       github.event_name == 'release')
+    if: github.event_name == 'release'
+    permissions:
+      contents: write
+      actions: read
     steps:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -142,23 +138,11 @@ jobs:
           pattern: pydng-dist-*
           merge-multiple: true
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: List files for release
+        run: ls -lah dist/
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
         with:
-          python-version: "3.10"
-
-      - name: Install twine
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install twine
-
-      - name: Publish to GitHub Packages
-        env:
-          TWINE_USERNAME: ${{ github.repository_owner }}
-          TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          twine upload
-          --repository-url "https://pypi.pkg.github.com/${{ github.repository }}"
-          --non-interactive
-          --skip-existing
-          dist/*.whl
+          files: |
+            dist/*
