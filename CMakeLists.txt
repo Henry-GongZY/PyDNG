@@ -261,7 +261,7 @@ if(BUILD_DNG_VALIDATE)
 endif()
 
 if(BUILD_PYTHON_BINDINGS)
-    find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+    find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
     set(PYBIND11_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/pybind11)
     if(NOT EXISTS "${PYBIND11_DIR}/CMakeLists.txt")
         find_package(pybind11 QUIET)
@@ -322,7 +322,7 @@ if(BUILD_PYTHON_BINDINGS)
     endif()
     pydng_windows_gnu_xmp_fix(_native)
 
-    target_link_libraries(_native PRIVATE dng ${Python3_LIBRARIES})
+    target_link_libraries(_native PRIVATE dng)
     target_link_directories(_native PRIVATE ${CMAKE_INSTALL_PREFIX}/lib ${JXL_BUILD_DIR}/lib)
 
     install(TARGETS _native
