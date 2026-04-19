@@ -40,7 +40,7 @@ test-command = "python -c \"import pydng; print('PyDNG loaded successfully')\""
 
 [tool.cibuildwheel.linux]
 # Build the core library directly within the proven manylinux container before wheel builds
-before-all = "cmake -B prebuilt_build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_DNG_VALIDATE=OFF -DCMAKE_INSTALL_PREFIX={project}/prebuilt_dng && cmake --build prebuilt_build --target install"
+before-all = "cmake -B prebuilt_build -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_DNG_VALIDATE=OFF -DCMAKE_INSTALL_PREFIX={project}/prebuilt_dng && cmake --build prebuilt_build --target install"
 environment = { CMAKE_ARGS = "-DBUILD_DNG_LIBRARY=OFF -DPREBUILT_DNG_PATH={project}/prebuilt_dng" }
 
 [tool.cibuildwheel.windows]
