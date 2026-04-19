@@ -263,7 +263,7 @@ DngMeta* Dng::GetMeta() const {
     return meta;
 }
 
-void Dng::SetMeta(const DngMeta* meta) {
+void Dng::SetMeta(const DngMeta* /*meta*/) {
 
 }
 

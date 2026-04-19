@@ -15,7 +15,6 @@ int main() {
     auto m = dng.GetData(false);
     dng.SetData(m, false);
     dng.Write("11.dng");
-    UTF8ToWChar(R"(123313)", 0, nullptr, 0);
     return 0;
 }
 
