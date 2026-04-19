@@ -51,8 +51,10 @@ jobs:
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
             docker run --rm -v ${{ github.workspace }}:/project -w /project quay.io/pypa/manylinux2014_x86_64 bash -c "\
-              cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_DNG_VALIDATE=OFF -DCMAKE_INSTALL_PREFIX=install_dir && \
-              cmake --build build --target install && \
+              source /opt/rh/devtoolset-10/enable && \
+              /opt/python/cp310-cp310/bin/pip install cmake ninja && \
+              /opt/python/cp310-cp310/bin/cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_DNG_VALIDATE=OFF -DCMAKE_INSTALL_PREFIX=install_dir && \
+              /opt/python/cp310-cp310/bin/cmake --build build --target install && \
               chown -R $(id -u):$(id -g) install_dir build"
           else
             cmake -B build -G Ninja \
