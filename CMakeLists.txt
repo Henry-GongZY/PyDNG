@@ -212,6 +212,7 @@ if(BUILD_DNG_VALIDATE)
     endif()
     pydng_windows_gnu_xmp_fix(dng_validate)
     target_include_directories(dng_validate PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/bindings/include
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/dng_sdk/source
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit/public/include
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/xmp/toolkit
