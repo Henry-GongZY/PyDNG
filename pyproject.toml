@@ -39,9 +39,9 @@ build-verbosity = "1"
 test-command = "python -c \"import pydng; print('PyDNG loaded successfully')\""
 
 [tool.cibuildwheel.linux]
-# We'll use the pre-built libdng.so from Stage 1.
-# Put it in a directory within the project root so it's visible in the container.
-environment = { CMAKE_ARGS = "-DBUILD_DNG_LIBRARY=OFF -DPREBUILT_DNG_PATH=./prebuilt_dng" }
+# Build the core library directly within the proven manylinux container before wheel builds
+before-all = "cmake -B prebuilt_build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_DNG_VALIDATE=OFF -DCMAKE_INSTALL_PREFIX={project}/prebuilt_dng && cmake --build prebuilt_build --target install"
+environment = { CMAKE_ARGS = "-DBUILD_DNG_LIBRARY=OFF -DPREBUILT_DNG_PATH={project}/prebuilt_dng" }
 
 [tool.cibuildwheel.windows]
 environment = { CMAKE_ARGS = "-DBUILD_DNG_LIBRARY=OFF -DPREBUILT_DNG_PATH=./prebuilt_dng" }
