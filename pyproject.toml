@@ -41,7 +41,7 @@ test-command = "python -c \"import pydng; print('PyDNG loaded successfully')\""
 [tool.cibuildwheel.linux]
 # We'll use the pre-built libdng.so from Stage 1.
 # Put it in a directory within the project root so it's visible in the container.
-environment = { SKBUILD_CMAKE_ARGS = "-DBUILD_DNG_LIBRARY=OFF -DPREBUILT_DNG_PATH=./prebuilt_dng" }
+environment = { CMAKE_ARGS = "-DBUILD_DNG_LIBRARY=OFF -DPREBUILT_DNG_PATH=./prebuilt_dng" }
 
 [tool.cibuildwheel.windows]
-environment = { SKBUILD_CMAKE_ARGS = "-DBUILD_DNG_LIBRARY=OFF -DPREBUILT_DNG_PATH=./prebuilt_dng" }
+environment = { CMAKE_ARGS = "-DBUILD_DNG_LIBRARY=OFF -DPREBUILT_DNG_PATH=./prebuilt_dng" }

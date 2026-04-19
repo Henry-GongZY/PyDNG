@@ -58,7 +58,7 @@ jobs:
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_PYTHON_BINDINGS=OFF \
-            -DBUILD_DNG_VALIDATE=ON \
+            -DBUILD_DNG_VALIDATE=OFF \
             -DCMAKE_INSTALL_PREFIX=install_dir
           cmake --build build --target install
 
