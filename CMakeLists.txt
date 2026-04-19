@@ -240,7 +240,7 @@ if(WIN32)
                 RUNTIME DESTINATION pydng
                 ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
         else()
-            install(FILES ${DNG_LIB} DESTINATION pydng)
+            install(FILES ${PREBUILT_DNG_PATH}/bin/dng.dll DESTINATION pydng)
         endif()
     else()
         if(BUILD_DNG_LIBRARY)
@@ -317,8 +317,12 @@ if(BUILD_PYTHON_BINDINGS)
         XMP_COMPONENT_INT_NAMESPACE=AdobeXMPCore_Int
         JXL_STATIC_DEFINE=1
     )
-    if(WIN32)
+    if(APPLE)
+        target_compile_definitions(_native PRIVATE qMacOS=1 MAC_ENV XMP_64=1)
+    elseif(WIN32)
         target_compile_definitions(_native PRIVATE qWinOS=1 WIN_ENV NOMINMAX UNICODE)
+    else()
+        target_compile_definitions(_native PRIVATE qLinux=1 UNIX_ENV XMP_64=1)
     endif()
     pydng_windows_gnu_xmp_fix(_native)
 
