@@ -13,9 +13,9 @@ set(PYDNG_BINDINGS_SOURCES
     "${PYDNG_BINDINGS_ROOT}/src/dng.cpp"
 )
 
-# Optional dng_validate executable + debug/main.cpp (same Dng wrapper sources as the extension)
+# Optional dng_validate executable (same Dng wrapper sources as the extension)
 set(DNG_VALIDATE_SRC
-    "${PYDNG_BINDINGS_ROOT}/debug/main.cpp"
+    "${PYDNG_BINDINGS_ROOT}/main.cpp"
     "${PYDNG_BINDINGS_INCLUDE_DIR}/dng.h"
     "${PYDNG_BINDINGS_ROOT}/src/dng.cpp"
     "${PYDNG_BINDINGS_INCLUDE_DIR}/utils.h"

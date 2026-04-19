@@ -29,3 +29,19 @@ minimum-version = "0.10"
 cmake.build-type = "Release"
 # Default wheel.packages probes ``src/`` first; pure Python lives in ``src/pydng``.
 wheel.packages = { pydng = "src/pydng" }
+
+[tool.cibuildwheel]
+# Build for Python 3.8+ as specified in [project]. Skip 32-bit builds.
+skip = "*-win32 *_i686 pp* cp36* cp37*"
+build-verbosity = "1"
+
+# Test the built wheel
+test-command = "python -c \"import pydng; print('PyDNG loaded successfully')\""
+
+[tool.cibuildwheel.linux]
+# We'll use the pre-built libdng.so from Stage 1.
+# Put it in a directory within the project root so it's visible in the container.
+environment = { SKBUILD_CMAKE_ARGS = "-DBUILD_DNG_LIBRARY=OFF -DPREBUILT_DNG_PATH=./prebuilt_dng" }
+
+[tool.cibuildwheel.windows]
+environment = { SKBUILD_CMAKE_ARGS = "-DBUILD_DNG_LIBRARY=OFF -DPREBUILT_DNG_PATH=./prebuilt_dng" }

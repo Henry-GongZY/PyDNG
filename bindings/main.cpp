@@ -18,3 +18,4 @@ int main() {
     UTF8ToWChar(R"(123313)", 0, nullptr, 0);
     return 0;
 }
+
