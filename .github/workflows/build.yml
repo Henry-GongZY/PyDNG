@@ -1,4 +1,4 @@
-# Build wheels (Linux + Windows, Python 3.10) and sdist; artifact upload; attach wheels to GitHub Release when a release is published.
+# Build core lib first, then multi-version wheels via cibuildwheel.
 name: Build
 
 on:
@@ -22,9 +22,13 @@ env:
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
 jobs:
-  linux-wheel:
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
+  build-core:
+    name: Build Core (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,113 +40,98 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
-
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            cmake \
-            ninja-build \
-            python3-dev
-
-      - name: Install build tools
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install build
-
-      - name: Build sdist and wheel
-        run: python -m build --wheel --sdist
-
-      - name: List built packages
-        run: ls -lah dist/
-
-      - name: Upload dist artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: pydng-dist-linux-py310
-          path: dist/*
-          if-no-files-found: error
-
-  # Windows: MSVC via ilammy/msvc-dev-cmd so CMake/pybind find cl.exe (libjpeg sources + libjxl ExternalProject).
-  windows-wheel:
-    runs-on: windows-latest
-    timeout-minutes: 180
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Enable long paths
-        shell: bash
-        run: git config --global core.longpaths true
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: MSVC environment (x64)
+      - name: MSVC environment (Windows)
+        if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~\AppData\Local\pip\Cache
-          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
-
-      - name: Install build tools
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install build
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build
 
-      - name: Build wheel
-        run: python -m build --wheel
-        env:
-          CMAKE_GENERATOR: Visual Studio 17 2022
-          CMAKE_GENERATOR_PLATFORM: x64
+      - name: Configure and Build
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_PYTHON_BINDINGS=OFF \
+            -DBUILD_DNG_VALIDATE=ON \
+            -DCMAKE_INSTALL_PREFIX=install_dir
+          cmake --build build --target install
 
-      - name: List built wheel
-        shell: bash
-        run: ls -la dist/
-
-      - name: Upload wheel artifact
+      - name: Upload Core Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pydng-dist-windows-py310
-          path: dist/*.whl
-          if-no-files-found: error
+          name: dng-core-${{ matrix.os }}
+          path: install_dir/*
 
-  # Attach built wheels (and sdist from Linux) to the Release that triggered this workflow.
+  build-wheels:
+    name: Build Wheels on ${{ matrix.os }}
+    needs: [build-core]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download Core Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dng-core-${{ matrix.os }}
+          path: prebuilt_dng
+
+      - name: Set up QEMU (Linux)
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.16.2
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: pydng-wheels-${{ matrix.os }}
+          path: ./wheelhouse/*.whl
+
+  build-sdist:
+    name: Build sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build sdist
+        run: pipx run build --sdist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pydng-sdist
+          path: dist/*.tar.gz
+
   release-assets:
     name: Upload to GitHub Release
-    needs: [linux-wheel, windows-wheel]
+    needs: [build-wheels, build-sdist]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     permissions:
       contents: write
-      actions: read
     steps:
-      - name: Download build artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist
-          pattern: pydng-dist-*
+          pattern: pydng-*
           merge-multiple: true
-
-      - name: List files for release
-        run: ls -lah dist/
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/*
+          files: dist/*

@@ -15,15 +15,19 @@ This project provides fundamental Python bindings for the Adobe DNG SDK so you c
 ## Repository layout
 
 - `src/pydng/` — installable Python package (`__init__.py`, type stubs, `py.typed`).
-- `bindings/` — C++ layer for the pybind11 extension (`_native`) and optional `dng_validate`:
+- `bindings/` — C++ layer for the pybind11 extension (`_native`) and `dng_validate`:
   - `include/` — headers (`dng.h`, `utils.h`, `pch.h`)
   - `src/` — `pydng_bindings.cpp`, `dng.cpp`
-  - `debug/` — `main.cpp` (local debug / reference entry point)
+  - `main.cpp` — entry point for the `dng_validate` utility.
 - `extern/` — vendored SDKs and third-party code (DNG SDK, XMP, libjxl, pybind11, etc.).
 
 ### CI packaging
 
-On pushes and pull requests, [GitHub Actions](.github/workflows/build.yml) builds packages with Python 3.11: **Linux** produces the sdist and a Linux wheel (**pydng-dist-linux-py311**); **Windows** (MSVC x64) produces a Windows wheel (**pydng-dist-windows-py311**). In the workflow run, open **Summary → Artifacts** to download them. Ensure submodules are initialized (`extern/pybind11`).
+On pushes and pull requests, [GitHub Actions](.github/workflows/build.yml) uses a two-stage pipeline:
+1.  **Stage 1**: Build the core `dng` shared library for Linux and Windows.
+2.  **Stage 2**: Use `cibuildwheel` to build Python wheels for all compatible versions (Python 3.8 to 3.12) using the pre-built core library.
+
+This ensures efficient build times and broad compatibility.
 
 ## Quick start
 
@@ -55,31 +59,47 @@ Use a manual CMake workflow if you need full control over configuration and comp
 - A C++14-capable compiler (GCC 4.9 or newer on Linux, Clang 3.4 or newer on macOS, MSVC 2015 or newer on Windows)
 - pybind11 (via the `extern/pybind11` git submodule, or fetched automatically if missing)
 
-## Build instructions
+### Standard build (Recommended)
 
-### Windows
+To build everything (the core library and the Python extension) at once for your current Python environment:
+
+```bash
+pip install .
+```
+
+### Advanced: Separated build
+
+If you want to build the core library once and then build the bindings later (similar to the CI process):
+
+#### 1. Build the core library
 
 ```bash
 mkdir build
 cd build
-
-cmake .. -DBUILD_PYTHON_BINDINGS=ON
-cmake --build . --config Release
+cmake .. -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_DNG_VALIDATE=ON -DCMAKE_INSTALL_PREFIX=../install_dir
+cmake --build . --target install --config Release
 ```
 
-The built extension and copied pure-Python package end up under `build/python/pydng/` (add that folder’s parent, `build/python`, to `PYTHONPATH` for ad-hoc testing).
+#### 2. Build the Python bindings using the pre-built core
 
-### Linux / macOS
+```bash
+cd ..
+# Point to the install_dir from the previous step
+pip install . --config-settings=cmake.args="-DBUILD_DNG_LIBRARY=OFF -DPREBUILT_DNG_PATH=./install_dir"
+```
+
+### Building dng_validate for C++ verification
+
+To build the `dng_validate` command-line tool for verifying your C++ changes:
 
 ```bash
 mkdir build
 cd build
-
-cmake .. -DBUILD_PYTHON_BINDINGS=ON -DCMAKE_BUILD_TYPE=Release
-make -j$(nproc)
+cmake .. -DBUILD_DNG_VALIDATE=ON -DBUILD_PYTHON_BINDINGS=OFF
+cmake --build . --config Release --target dng_validate
 ```
 
-On Unix, the module may also be copied to your user site-packages by the build; see `CMakeLists.txt` for details.
+The executable will be located in the `build` directory (or `build/Release` on Windows).
 
 ## Usage
 
