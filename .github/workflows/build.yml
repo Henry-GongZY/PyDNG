@@ -1,4 +1,5 @@
-# Build core lib first, then multi-version wheels via cibuildwheel.
+# Windows: core on MSVC host → wheels (cibuildwheel).
+# Linux: core once inside manylinux2014 (matches wheel ABI) → wheels reuse prebuilt_dng (no full cmake in before-all).
 name: Build
 
 on:
@@ -20,15 +21,13 @@ permissions:
 env:
   CMAKE_BUILD_PARALLEL_LEVEL: 2
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  # Same image family cibuildwheel uses for broad manylinux2014_x86_64 wheels.
+  MANYLINUX_IMAGE: quay.io/pypa/manylinux2014_x86_64
 
 jobs:
-  build-core:
-    name: Build Core (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+  build-core-windows:
+    name: Build Core (Windows)
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,17 +39,10 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: MSVC environment (Windows)
-        if: runner.os == 'Windows'
+      - name: MSVC environment (x64)
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build
 
       - name: Configure and Build
         shell: bash
@@ -60,22 +52,44 @@ jobs:
             -DBUILD_PYTHON_BINDINGS=OFF \
             -DBUILD_DNG_VALIDATE=OFF \
             -DCMAKE_INSTALL_PREFIX=install_dir
-          cmake --build build --target install
+          cmake --build build --target install --parallel "${CMAKE_BUILD_PARALLEL_LEVEL}"
 
       - name: Upload Core Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dng-core-${{ matrix.os }}
-          path: install_dir/*
+          name: dng-core-windows
+          path: install_dir
 
-  build-wheels:
-    name: Build Wheels on ${{ matrix.os }}
-    needs: [build-core]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+  # Host Ubuntu cannot produce manylinux-compliant libdng; build core once in the same manylinux image used for wheels.
+  build-core-manylinux:
+    name: Build Core (manylinux2014)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build & install core in manylinux container
+        run: |
+          set -eux
+          JOBS="${CMAKE_BUILD_PARALLEL_LEVEL}"
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/project" \
+            -w /project \
+            "${MANYLINUX_IMAGE}" \
+            bash -lc "yum install -y libatomic epel-release && cmake -B prebuilt_build -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_DNG_VALIDATE=OFF -DCMAKE_INSTALL_PREFIX=/project/prebuilt_dng && cmake --build prebuilt_build --target install --parallel ${JOBS}"
+
+      - name: Upload Core Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dng-core-manylinux
+          path: prebuilt_dng
+
+  build-wheels-windows:
+    name: Build Wheels (Windows)
+    needs: [build-core-windows]
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -85,11 +99,38 @@ jobs:
       - name: Download Core Artifact
         uses: actions/download-artifact@v4
         with:
-          name: dng-core-${{ matrix.os }}
+          name: dng-core-windows
+          path: prebuilt_dng
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.22.0
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: pydng-wheels-windows
+          path: ./wheelhouse/*.whl
+
+  build-wheels-linux:
+    name: Build Wheels (Linux)
+    needs: [build-core-manylinux]
+    runs-on: ubuntu-latest
+    env:
+      # Manylinux wheel containers: minimal OS deps (core comes from dng-core-manylinux artifact).
+      CIBW_BEFORE_ALL: yum install -y libatomic epel-release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download Core Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dng-core-manylinux
           path: prebuilt_dng
 
       - name: Set up QEMU (Linux)
-        if: runner.os == 'Linux'
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
@@ -100,7 +141,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: pydng-wheels-${{ matrix.os }}
+          name: pydng-wheels-linux
           path: ./wheelhouse/*.whl
 
   build-sdist:
@@ -119,7 +160,7 @@ jobs:
 
   release-assets:
     name: Upload to GitHub Release
-    needs: [build-wheels, build-sdist]
+    needs: [build-wheels-windows, build-wheels-linux, build-sdist]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     permissions:
@@ -135,4 +176,5 @@ jobs:
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: |
+            dist/*
