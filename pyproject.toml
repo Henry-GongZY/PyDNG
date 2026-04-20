@@ -32,7 +32,7 @@ wheel.packages = { pydng = "src/pydng" }
 
 [tool.cibuildwheel]
 # Build for Python 3.8+ as specified in [project]. Skip 32-bit builds.
-skip = "*-win32 *_i686 pp* cp36* cp37*"
+skip = "*-win32 *_i686 pp* cp36* cp37* *musllinux*"
 build-verbosity = "1"
 
 # Test the built wheel
