@@ -76,7 +76,9 @@ if(BUILD_DNG_LIBRARY)
 
     set(LIBJXL_EXTRA_ARGS "")
     if(UNIX)
+        # -C preload runs before libjxl project(); fixes brotli log2() check on manylinux/glibc.
         list(APPEND LIBJXL_EXTRA_ARGS
+            "-C${CMAKE_CURRENT_SOURCE_DIR}/cmake/LibjxlCMakeCacheInit.cmake"
             -DCMAKE_EXE_LINKER_FLAGS=-lm
             -DCMAKE_SHARED_LINKER_FLAGS=-lm
             -DCMAKE_REQUIRED_LIBRARIES=m
