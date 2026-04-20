@@ -188,7 +188,7 @@ else()
         set(PREBUILT_DNG_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${PREBUILT_DNG_PATH}")
     endif()
     # Use pre-built library
-    find_library(DNG_LIB dng PATHS ${PREBUILT_DNG_PATH}/lib ${PREBUILT_DNG_PATH}/pydng NO_DEFAULT_PATH)
+    find_library(DNG_LIB dng PATHS ${PREBUILT_DNG_PATH}/lib ${PREBUILT_DNG_PATH}/lib64 ${PREBUILT_DNG_PATH}/pydng NO_DEFAULT_PATH)
     if(NOT DNG_LIB)
         message(FATAL_ERROR "Pre-built dng library not found in ${PREBUILT_DNG_PATH}")
     endif()
