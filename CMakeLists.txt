@@ -74,6 +74,18 @@ if(BUILD_DNG_LIBRARY)
         )
     endif()
 
+    set(LIBJXL_EXTRA_ARGS "")
+    if(UNIX)
+        list(APPEND LIBJXL_EXTRA_ARGS
+            -DCMAKE_EXE_LINKER_FLAGS=-lm
+            -DCMAKE_SHARED_LINKER_FLAGS=-lm
+            -DCMAKE_REQUIRED_LIBRARIES=m
+            -DThreads_FOUND=TRUE
+            -DCMAKE_THREAD_LIBS_INIT=-pthread
+            -DATOMICS_LOCK_FREE_INSTRUCTIONS=1
+        )
+    endif()
+
     ExternalProject_Add(
         libjxl
         SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/libjxl/libjxl
@@ -82,12 +94,7 @@ if(BUILD_DNG_LIBRARY)
             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
             -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
             -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-            -DCMAKE_EXE_LINKER_FLAGS=-lm
-            -DCMAKE_SHARED_LINKER_FLAGS=-lm
-            -DCMAKE_REQUIRED_LIBRARIES=m
-            -DThreads_FOUND=TRUE
-            -DCMAKE_THREAD_LIBS_INIT=-pthread
-            -DATOMICS_LOCK_FREE_INSTRUCTIONS=1
+            ${LIBJXL_EXTRA_ARGS}
             -DBUILD_SHARED_LIBS=OFF
             -DBUILD_TESTING=OFF
             -DJPEGXL_ENABLE_SJPEG=OFF
