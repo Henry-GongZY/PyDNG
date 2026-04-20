@@ -85,6 +85,7 @@ if(BUILD_DNG_LIBRARY)
             -DThreads_FOUND=TRUE
             -DCMAKE_THREAD_LIBS_INIT=-pthread
             -DATOMICS_LOCK_FREE_INSTRUCTIONS=1
+            -DLOG2_LIBM_RES=1
         )
     endif()
 
