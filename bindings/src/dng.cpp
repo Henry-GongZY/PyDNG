@@ -302,6 +302,30 @@ DngMeta* Dng::GetMeta() const {
     return meta;
 }
 
+std::vector<double> Dng::GetWhiteBalance() const {
+    std::vector<double> wb;
+    if (!negative.Get()) return wb;
+
+    if (negative->HasCameraNeutral()) {
+        const dng_vector& neutral = negative->CameraNeutral();
+        wb.reserve(neutral.Count());
+        for (uint32 i = 0; i < neutral.Count(); ++i) {
+            wb.push_back(neutral[i]);
+        }
+    }
+    return wb;
+}
+
+void Dng::SetWhiteBalance(const std::vector<double>& wb) {
+    if (!negative.Get() || wb.empty()) return;
+
+    dng_vector neutral((uint32)wb.size());
+    for (uint32 i = 0; i < (uint32)wb.size(); ++i) {
+        neutral[i] = wb[i];
+    }
+    negative->SetCameraNeutral(neutral);
+}
+
 void Dng::SetMeta(const DngMeta* /*meta*/) {
 
 }

@@ -84,6 +84,8 @@ public:
     DngMeta *GetExif() const;
     DngMeta *GetImageInfo() const;
     DngMeta *GetColorInfo() const;
+    std::vector<double> GetWhiteBalance() const;
+    void SetWhiteBalance(const std::vector<double> &wb);
 
     void SetMeta(const DngMeta *meta);
 

@@ -181,10 +181,37 @@ class Dng:
     
     def get_meta(self) -> DngMeta:
         """
-        Get metadata from DNG file.
+        Get all metadata from DNG file.
         
         Returns:
-            DngMeta: Metadata object containing EXIF and other information
+            DngMeta: Metadata object containing EXIF, image info, and color info
+        """
+        ...
+    
+    def get_exif(self) -> DngMeta:
+        """
+        Get EXIF metadata from DNG file.
+        
+        Returns:
+            DngMeta: Metadata object containing only EXIF information
+        """
+        ...
+    
+    def get_image_info(self) -> DngMeta:
+        """
+        Get image dimensions and geometry info from DNG file.
+        
+        Returns:
+            DngMeta: Metadata object containing only image dimension information
+        """
+        ...
+    
+    def get_color_info(self) -> DngMeta:
+        """
+        Get color space and planes info from DNG file.
+        
+        Returns:
+            DngMeta: Metadata object containing only color information
         """
         ...
     
@@ -194,6 +221,24 @@ class Dng:
         
         Args:
             meta: DngMeta object containing metadata to set
+        """
+        ...
+
+    def get_white_balance(self) -> list[float]:
+        """
+        Get white balance neutral vector (AsShotNeutral).
+        
+        Returns:
+            list[float]: Neutral vector gains, typically [r, g, b]
+        """
+        ...
+    
+    def set_white_balance(self, wb: list[float]) -> None:
+        """
+        Set white balance neutral vector (AsShotNeutral).
+        
+        Args:
+            wb: List of gains, e.g., [r, g, b]
         """
         ...
 
