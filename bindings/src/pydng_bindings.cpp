@@ -259,6 +259,11 @@ PYBIND11_MODULE(_native, m) {
         .def("set_meta", &Dng::SetMeta,
              py::arg("meta"),
              "Set metadata for DNG file")
+        .def("get_white_balance", &Dng::GetWhiteBalance,
+             "Get white balance neutral vector (e.g., [r, g, b] gains)")
+        .def("set_white_balance", &Dng::SetWhiteBalance,
+             py::arg("wb"),
+             "Set white balance neutral vector (e.g., [r, g, b] gains)")
         .def("get_bayer_pattern", &Dng::GetBayerPattern,
              "Return 2x2 Bayer tile as RGGB/GRBG/BGGR/GBRG, or empty string if not available")
         .def("set_bayer_pattern", &Dng::SetBayerPattern,

@@ -201,6 +201,12 @@ Main entry point for reading and writing DNG files.
 - `set_baseline_exposure(exposure: float) -> None`  
   Set baseline exposure.
 
+- `get_white_balance() -> List[float]`  
+  Get white balance neutral vector (e.g., `[r, g, b]` gains).
+
+- `set_white_balance(wb: List[float]) -> None`  
+  Set white balance neutral vector.
+
 ### Class `DngMeta`
 
 Metadata for a DNG file.

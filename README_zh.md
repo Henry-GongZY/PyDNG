@@ -201,6 +201,12 @@ error_code = dng.write("output.dng")
 - `set_baseline_exposure(exposure: float) -> None`  
   设置基准曝光。
 
+- `get_white_balance() -> List[float]`  
+  获取白平衡中性向量（例如 `[r, g, b]` 增益）。
+
+- `set_white_balance(wb: List[float]) -> None`  
+  设置白平衡中性向量。
+
 ### `DngMeta` 类
 
 Dng 文件的元数据。
