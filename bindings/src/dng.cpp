@@ -175,25 +175,13 @@ void Dng::SetData(const DngData* data, bool enhanced) const {
     }
 }
 
-double Dng::GetBaselineExposure() const {
-    return negative->BaselineExposure();
-}
-
-void Dng::SetBaselineExposure(double exposure) {
-    negative->SetBaselineExposure(exposure);
-}
-
-DngMeta* Dng::GetMeta() const {
-    if (!negative.Get()) {
-        return new DngMeta();
-    }
-    
+DngMeta* Dng::GetExif() const {
     auto meta = new DngMeta();
-    
+    if (!negative.Get()) return meta;
+
     // 同步元数据
     negative->SynchronizeMetadata();
     
-    // 获取 EXIF 信息
     const dng_exif* exif = negative->GetExif();
     if (exif) {
         // 基本信息
@@ -228,7 +216,13 @@ DngMeta* Dng::GetMeta() const {
             meta->dateTimeOriginal = DNGStringToStdString(dateTimeStr);
         }
     }
-    
+    return meta;
+}
+
+DngMeta* Dng::GetImageInfo() const {
+    auto meta = new DngMeta();
+    if (!negative.Get()) return meta;
+
     // 图像尺寸
     if (negative->Stage1Image()) {
         dng_point stage1Size = negative->Stage1Image()->Size();
@@ -247,8 +241,13 @@ DngMeta* Dng::GetMeta() const {
         meta->width = meta->rawWidth;
         meta->height = meta->rawHeight;
     }
-    
-    // 其他信息
+    return meta;
+}
+
+DngMeta* Dng::GetColorInfo() const {
+    auto meta = new DngMeta();
+    if (!negative.Get()) return meta;
+
     meta->isMonochrome = negative->IsMonochrome();
     if (negative->Stage1Image()) {
         meta->colorPlanes = negative->Stage1Image()->Planes();
@@ -260,6 +259,45 @@ DngMeta* Dng::GetMeta() const {
     } else {
         meta->colorSpace = "RGB";
     }
+    return meta;
+}
+
+DngMeta* Dng::GetMeta() const {
+    auto meta = new DngMeta();
+    if (!negative.Get()) {
+        return meta;
+    }
+    
+    DngMeta* exif = GetExif();
+    DngMeta* img = GetImageInfo();
+    DngMeta* color = GetColorInfo();
+    
+    // 合并元数据
+    meta->make = exif->make;
+    meta->model = exif->model;
+    meta->software = exif->software;
+    meta->artist = exif->artist;
+    meta->copyright = exif->copyright;
+    meta->exposureTime = exif->exposureTime;
+    meta->fNumber = exif->fNumber;
+    meta->focalLength = exif->focalLength;
+    meta->iso = exif->iso;
+    meta->focalLength35mm = exif->focalLength35mm;
+    meta->dateTime = exif->dateTime;
+    meta->dateTimeOriginal = exif->dateTimeOriginal;
+    
+    meta->width = img->width;
+    meta->height = img->height;
+    meta->rawWidth = img->rawWidth;
+    meta->rawHeight = img->rawHeight;
+    
+    meta->isMonochrome = color->isMonochrome;
+    meta->colorPlanes = color->colorPlanes;
+    meta->colorSpace = color->colorSpace;
+    
+    delete exif;
+    delete img;
+    delete color;
     
     return meta;
 }
@@ -268,6 +306,13 @@ void Dng::SetMeta(const DngMeta* /*meta*/) {
 
 }
 
+double Dng::GetBaselineExposure() const {
+    return negative->BaselineExposure();
+}
+
+void Dng::SetBaselineExposure(double exposure) {
+    negative->SetBaselineExposure(exposure);
+}
 
 std::string Dng::GetBayerPattern() const {
     if (!negative.Get()) return "";

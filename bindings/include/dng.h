@@ -81,6 +81,9 @@ public:
     void SetBaselineExposure(double exposure);
 
     DngMeta *GetMeta() const;
+    DngMeta *GetExif() const;
+    DngMeta *GetImageInfo() const;
+    DngMeta *GetColorInfo() const;
 
     void SetMeta(const DngMeta *meta);
 
