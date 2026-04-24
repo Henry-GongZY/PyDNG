@@ -1,5 +1,8 @@
 # PyDNG — Python bindings for the Adobe DNG SDK
 
+[中文版](./README_zh.md)
+
+
 This project provides fundamental Python bindings for the Adobe DNG SDK so you can read and write DNG (Digital Negative) files from Python.
 
 ## Features
