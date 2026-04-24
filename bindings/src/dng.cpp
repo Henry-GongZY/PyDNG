@@ -4,13 +4,14 @@
 
 #include "dng.h"
 #include "utils.h"
-#include <cctype>
 #include <stdexcept>
 #include <string>
 
 // 前向声明工具函数
 std::string DNGStringToStdString(const dng_string& dngStr);
 double DNGRationalToDouble(const dng_urational& rational);
+char ColorKeyToBayerChar(uint8 key);
+uint32_t BayerStringToPhase(const std::string &p);
 
 Dng::Dng(const std::string& path, bool ignore_enhanced) {
     const int err = Read(path, ignore_enhanced);
