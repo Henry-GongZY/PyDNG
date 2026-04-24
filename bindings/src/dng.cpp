@@ -268,31 +268,6 @@ void Dng::SetMeta(const DngMeta* /*meta*/) {
 
 }
 
-namespace {
-
-char ColorKeyToBayerChar(uint8 key) {
-    if (key == colorKeyRed) return 'R';
-    if (key == colorKeyGreen) return 'G';
-    if (key == colorKeyBlue) return 'B';
-    return 0;
-}
-
-uint32_t BayerStringToPhase(const std::string &p) {
-    if (p.size() != 4) return static_cast<uint32_t>(-1);
-    std::string u;
-    u.reserve(4);
-    for (char c : p) {
-        if (!std::isalpha(static_cast<unsigned char>(c))) return static_cast<uint32_t>(-1);
-        u.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
-    }
-    if (u == "RGGB") return 1;
-    if (u == "GRBG") return 0;
-    if (u == "BGGR") return 2;
-    if (u == "GBRG") return 3;
-    return static_cast<uint32_t>(-1);
-}
-
-} // namespace
 
 std::string Dng::GetBayerPattern() const {
     if (!negative.Get()) return "";
