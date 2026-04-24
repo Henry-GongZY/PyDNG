@@ -244,6 +244,18 @@ PYBIND11_MODULE(_native, m) {
             auto meta = self.GetMeta();
             return std::unique_ptr<DngMeta>(meta);
         }, "Get metadata from DNG file")
+        .def("get_exif", [](Dng& self) {
+            auto meta = self.GetExif();
+            return std::unique_ptr<DngMeta>(meta);
+        }, "Get EXIF metadata from DNG file")
+        .def("get_image_info", [](Dng& self) {
+            auto meta = self.GetImageInfo();
+            return std::unique_ptr<DngMeta>(meta);
+        }, "Get image geometry and dimensions from DNG file")
+        .def("get_color_info", [](Dng& self) {
+            auto meta = self.GetColorInfo();
+            return std::unique_ptr<DngMeta>(meta);
+        }, "Get color space and planes info from DNG file")
         .def("set_meta", &Dng::SetMeta,
              py::arg("meta"),
              "Set metadata for DNG file")
