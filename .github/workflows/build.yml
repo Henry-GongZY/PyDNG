@@ -108,7 +108,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: pydng-wheels-windows
+          name: dngpy-wheels-windows
           path: ./wheelhouse/*.whl
 
   build-wheels-linux:
@@ -141,7 +141,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: pydng-wheels-linux
+          name: dngpy-wheels-linux
           path: ./wheelhouse/*.whl
 
   build-sdist:
@@ -155,7 +155,7 @@ jobs:
         run: pipx run build --sdist
       - uses: actions/upload-artifact@v4
         with:
-          name: pydng-sdist
+          name: dngpy-sdist
           path: dist/*.tar.gz
 
   release-assets:
@@ -170,7 +170,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-          pattern: pydng-*
+          pattern: dngpy-*
           merge-multiple: true
 
       - name: Upload release assets
@@ -191,7 +191,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-          pattern: pydng-*
+          pattern: dngpy-*
           merge-multiple: true
 
       - name: Publish to PyPI
