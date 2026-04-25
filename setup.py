@@ -15,7 +15,7 @@ except Exception:
     long_description = "Python bindings for Adobe DNG SDK"
 
 setup(
-    name="pydng",
+    name="dngpy",
     version=version,
     description="Python bindings for Adobe DNG SDK",
     long_description=long_description,
