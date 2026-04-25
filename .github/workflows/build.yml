@@ -178,3 +178,23 @@ jobs:
         with:
           files: |
             dist/*
+
+  publish-to-pypi:
+    name: Publish to PyPI
+    needs: [build-wheels-windows, build-wheels-linux, build-sdist]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+    permissions:
+      id-token: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: pydng-*
+          merge-multiple: true
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
