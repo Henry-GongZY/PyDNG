@@ -27,6 +27,6 @@ setup(
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     package_data={
-        "pydng": ["py.typed", "__init__.pyi", "_native.pyi"],
+        "dngpy": ["py.typed", "__init__.pyi", "_native.pyi"],
     },
 )

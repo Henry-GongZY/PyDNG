@@ -78,7 +78,7 @@ struct Dng {
 public:
     Dng() = default;
     /// Load a DNG from disk (equivalent to default constructor then Read). Throws on failure.
-    explicit Dng(const std::string& path, bool ignore_enhanced = false);
+    Dng(const std::string& path, bool ignore_enhanced = false);
 
     int Read(const std::string&, bool);
     int Write(const std::string&);

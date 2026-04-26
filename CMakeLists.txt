@@ -29,13 +29,13 @@ if(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()
 
-set(PYDNG_PY_PKG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/pydng)
+set(PYDNG_PY_PKG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/dngpy)
 get_filename_component(PYDNG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/PyDNGBindings.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/PyDNGSources.cmake)
 
 # XMP headers: Adobe code uses #if _MSC_VER <= 1600; undefined _MSC_VER is treated as 0 → broken std::tr1 on MinGW.
-function(pydng_windows_gnu_xmp_fix target)
+function(dngpy_windows_gnu_xmp_fix target)
     if(WIN32 AND NOT MSVC)
         target_compile_definitions(${target} PRIVATE _MSC_VER=1920)
     endif()
@@ -149,7 +149,7 @@ if(BUILD_DNG_LIBRARY)
         target_compile_definitions(dng PUBLIC qLinux=1 UNIX_ENV XMP_64=1)
     endif()
 
-    pydng_windows_gnu_xmp_fix(dng)
+    dngpy_windows_gnu_xmp_fix(dng)
 
     target_link_directories(dng PRIVATE
         ${CMAKE_INSTALL_PREFIX}/lib
@@ -188,7 +188,7 @@ else()
         set(PREBUILT_DNG_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${PREBUILT_DNG_PATH}")
     endif()
     # Use pre-built library
-    find_library(DNG_LIB dng PATHS ${PREBUILT_DNG_PATH}/lib ${PREBUILT_DNG_PATH}/lib64 ${PREBUILT_DNG_PATH}/pydng NO_DEFAULT_PATH)
+    find_library(DNG_LIB dng PATHS ${PREBUILT_DNG_PATH}/lib ${PREBUILT_DNG_PATH}/lib64 ${PREBUILT_DNG_PATH}/dngpy NO_DEFAULT_PATH)
     if(NOT DNG_LIB)
         message(FATAL_ERROR "Pre-built dng library not found in ${PREBUILT_DNG_PATH}")
     endif()
@@ -231,7 +231,7 @@ if(BUILD_DNG_VALIDATE)
     if(WIN32)
         target_compile_definitions(dng_validate PRIVATE qWinOS=1 WIN_ENV NOMINMAX UNICODE)
     endif()
-    pydng_windows_gnu_xmp_fix(dng_validate)
+    dngpy_windows_gnu_xmp_fix(dng_validate)
     target_include_directories(dng_validate PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/bindings/include
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/dng_sdk/source
@@ -255,10 +255,10 @@ if(WIN32)
     if(BUILD_PYTHON_BINDINGS)
         if(BUILD_DNG_LIBRARY)
             install(TARGETS dng
-                RUNTIME DESTINATION pydng
+                RUNTIME DESTINATION dngpy
                 ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
         else()
-            install(FILES ${PREBUILT_DNG_PATH}/bin/dng.dll DESTINATION pydng)
+            install(FILES ${PREBUILT_DNG_PATH}/bin/dng.dll DESTINATION dngpy)
         endif()
     else()
         if(BUILD_DNG_LIBRARY)
@@ -298,8 +298,8 @@ if(BUILD_PYTHON_BINDINGS)
 
     pybind11_add_module(_native ${PYDNG_BINDINGS_SOURCES})
     set_target_properties(_native PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
-    # Wheel 将 libdng 装在 site-packages/lib/、扩展在 site-packages/pydng/；若 RUNPATH 为构建目录的绝对路径，
-    # 安装后该路径不存在会导致 ImportError。使用相对 RUNPATH 指向与 pydng 同级的 lib/。
+    # Wheel 将 libdng 装在 site-packages/lib/、扩展在 site-packages/dngpy/；若 RUNPATH 为构建目录的绝对路径，
+    # 安装后该路径不存在会导致 ImportError。使用相对 RUNPATH 指向与 dngpy 同级的 lib/。
     if(APPLE)
         set_target_properties(_native PROPERTIES
             INSTALL_RPATH "@loader_path/../lib"
@@ -343,32 +343,32 @@ if(BUILD_PYTHON_BINDINGS)
     else()
         target_compile_definitions(_native PRIVATE qLinux=1 UNIX_ENV XMP_64=1)
     endif()
-    pydng_windows_gnu_xmp_fix(_native)
+    dngpy_windows_gnu_xmp_fix(_native)
 
     target_link_libraries(_native PRIVATE dng)
     target_link_directories(_native PRIVATE ${CMAKE_INSTALL_PREFIX}/lib ${JXL_BUILD_DIR}/lib)
 
     install(TARGETS _native
-        LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/pydng
-        RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/pydng
+        LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/dngpy
+        RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/dngpy
     )
     install(FILES
         ${PYDNG_PY_PKG_DIR}/__init__.py
         ${PYDNG_PY_PKG_DIR}/__init__.pyi
         ${PYDNG_PY_PKG_DIR}/_native.pyi
         ${PYDNG_PY_PKG_DIR}/py.typed
-        DESTINATION ${CMAKE_INSTALL_PREFIX}/pydng
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/dngpy
     )
 
     if(WIN32)
         add_custom_command(TARGET _native POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/python/pydng
-            COMMAND ${CMAKE_COMMAND} -E copy_directory ${PYDNG_PY_PKG_DIR} ${CMAKE_BINARY_DIR}/python/pydng
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:dng> ${CMAKE_BINARY_DIR}/python/pydng/
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:_native> ${CMAKE_BINARY_DIR}/python/pydng/
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/python/dngpy
+            COMMAND ${CMAKE_COMMAND} -E copy_directory ${PYDNG_PY_PKG_DIR} ${CMAKE_BINARY_DIR}/python/dngpy
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:dng> ${CMAKE_BINARY_DIR}/python/dngpy/
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:_native> ${CMAKE_BINARY_DIR}/python/dngpy/
         )
     else()
-        # 与 wheel 一致：libdng 在 lib/、包在 pydng/，配合 INSTALL_RPATH $ORIGIN/../lib
+        # 与 wheel 一致：libdng 在 lib/、包在 dngpy/，配合 INSTALL_RPATH $ORIGIN/../lib
         # 使用 cmake -P 复制 libdng.so*（含 symlink），避免 Ninja+sh 下 bash/shopt/cp 解析失败
         execute_process(
             COMMAND ${Python3_EXECUTABLE} -c "import site; print(site.getusersitepackages())"
@@ -379,18 +379,18 @@ if(BUILD_PYTHON_BINDINGS)
         add_custom_command(TARGET _native POST_BUILD
             COMMAND ${CMAKE_COMMAND} -DBIN_DIR=$<TARGET_FILE_DIR:dng> -DDEST=${CMAKE_BINARY_DIR}/python/lib
                 -P ${_copy_libdng_script}
-            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/python/pydng
-            COMMAND ${CMAKE_COMMAND} -E copy_directory ${PYDNG_PY_PKG_DIR} ${CMAKE_BINARY_DIR}/python/pydng
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:_native> ${CMAKE_BINARY_DIR}/python/pydng/
-            COMMENT "Staging pydng (build/python/{lib,pydng}) for local PYTHONPATH"
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/python/dngpy
+            COMMAND ${CMAKE_COMMAND} -E copy_directory ${PYDNG_PY_PKG_DIR} ${CMAKE_BINARY_DIR}/python/dngpy
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:_native> ${CMAKE_BINARY_DIR}/python/dngpy/
+            COMMENT "Staging dngpy (build/python/{lib,dngpy}) for local PYTHONPATH"
         )
         if(PYTHON_SITE_PACKAGES)
             add_custom_command(TARGET _native POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -DBIN_DIR=$<TARGET_FILE_DIR:dng> -DDEST=${PYTHON_SITE_PACKAGES}/lib
                     -P ${_copy_libdng_script}
-                COMMAND ${CMAKE_COMMAND} -E make_directory ${PYTHON_SITE_PACKAGES}/pydng
-                COMMAND ${CMAKE_COMMAND} -E copy_directory ${PYDNG_PY_PKG_DIR} ${PYTHON_SITE_PACKAGES}/pydng
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:_native> ${PYTHON_SITE_PACKAGES}/pydng/
+                COMMAND ${CMAKE_COMMAND} -E make_directory ${PYTHON_SITE_PACKAGES}/dngpy
+                COMMAND ${CMAKE_COMMAND} -E copy_directory ${PYDNG_PY_PKG_DIR} ${PYTHON_SITE_PACKAGES}/dngpy
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:_native> ${PYTHON_SITE_PACKAGES}/dngpy/
             )
         endif()
     endif()
