@@ -228,7 +228,9 @@ PYBIND11_MODULE(_native, m) {
     // Dng class
     py::class_<Dng>(m, "Dng")
         .def(py::init<>())
-        .def(py::init<const std::string&, bool>(),
+        .def(py::init([](const std::string& path, bool ignore_enhanced) {
+                 return new Dng(path, ignore_enhanced);
+             }),
              py::arg("path"),
              py::arg("ignore_enhanced") = false,
              "Load a DNG from path (same as Dng() then read). Raises RuntimeError on failure.")

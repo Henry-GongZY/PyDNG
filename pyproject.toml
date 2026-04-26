@@ -27,8 +27,8 @@ classifiers = [
 [tool.scikit-build]
 minimum-version = "0.10"
 cmake.build-type = "Release"
-# Default wheel.packages probes ``src/`` first; pure Python lives in ``src/pydng``.
-wheel.packages = { pydng = "src/pydng" }
+# Default wheel.packages probes ``src/`` first; pure Python lives in ``src/dngpy``.
+wheel.packages = { dngpy = "src/dngpy" }
 
 [tool.cibuildwheel]
 # Build for Python 3.8+ as specified in [project]. Skip 32-bit builds.
@@ -36,7 +36,7 @@ skip = "*-win32 *_i686 pp* cp36* cp37* *musllinux*"
 build-verbosity = "1"
 
 # Test the built wheel
-test-command = "python -c \"import pydng; print('PyDNG loaded successfully')\""
+test-command = "python -c \"import dngpy; print('dngpy loaded successfully')\""
 
 [tool.cibuildwheel.linux]
 environment = { CMAKE_ARGS = "-DBUILD_DNG_LIBRARY=OFF -DPREBUILT_DNG_PATH=./prebuilt_dng" }
