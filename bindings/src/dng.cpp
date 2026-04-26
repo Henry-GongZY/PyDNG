@@ -102,45 +102,61 @@ int Dng::Write(const std::string &path) {
 }
 
 DngData* Dng::GetData(bool enhanced) const {
-    const dng_image *dng_image_buf = nullptr;
-    auto data = new DngData();
-    if (enhanced)
-        dng_image_buf = negative->Stage3Image();
-    else
-        dng_image_buf = negative->Stage1Image();
+    if (!negative.Get()) {
+        throw std::runtime_error("DNG negative is not initialized.");
+    }
 
+    const dng_image *dng_image_buf = nullptr;
+    if (enhanced) {
+        dng_image_buf = negative->Stage3Image();
+        if (!dng_image_buf) {
+            throw std::runtime_error("Stage 3 (enhanced) image data is not available in this DNG.");
+        }
+    } else {
+        dng_image_buf = negative->Stage1Image();
+        if (!dng_image_buf) {
+            throw std::runtime_error("Stage 1 (raw) image data is not available in this DNG.");
+        }
+    }
+
+    auto data = new DngData();
     data->width = dng_image_buf->Width();
     data->height = dng_image_buf->Height();
     data->pixel_type = dng_image_buf->PixelType();
     data->channels = dng_image_buf->Planes();
-    int size;
+    
+    int bytes_per_pixel = 0;
     switch (data->pixel_type) {
-        case ttShort:
-            size = sizeof(unsigned short);
-            break;
-        case ttSShort:
-            size = sizeof(short);
-            break;
-        case ttByte:
-            size = sizeof(unsigned char);
-            break;
-        case ttLong:
-            size = sizeof(long);
-            break;
-        default:
-            size = sizeof(unsigned short);
-            break;
+        case ttByte:   bytes_per_pixel = 1; break;
+        case ttShort:  bytes_per_pixel = 2; break;
+        case ttSShort: bytes_per_pixel = 2; break;
+        case ttLong:   bytes_per_pixel = 4; break;
+        case ttFloat:  bytes_per_pixel = 4; break;
+        default:       bytes_per_pixel = 2; break;
     }
-    data->ptr = malloc(data->width * data->height * data->channels * size);
+    
+    data->ptr = malloc(data->width * data->height * data->channels * bytes_per_pixel);
+    if (!data->ptr) {
+        delete data;
+        throw std::runtime_error("Failed to allocate memory for image data.");
+    }
 
     dng_pixel_buffer buffer(dng_rect(0, 0, static_cast<int32>(data->height), static_cast<int32>(data->width)),
-                                0, data->channels, data->pixel_type, pcInterleaved, data->ptr);
+                            0, data->channels, data->pixel_type, pcInterleaved, data->ptr);
+    
     dng_image_buf->Get(buffer, dng_image::edge_none);
 
-    auto active_area = negative->GetLinearizationInfo()->fActiveArea;
-    data->top = active_area.t;
-    data->left = active_area.l;
+    // Default active area
+    data->top = 0;
+    data->left = 0;
 
+    // Try to get linearization active area if available
+    if (negative->GetLinearizationInfo()) {
+        auto active_area = negative->GetLinearizationInfo()->fActiveArea;
+        data->top = active_area.t;
+        data->left = active_area.l;
+    }
+    
     return data;
 }
 
