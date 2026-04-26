@@ -131,6 +131,15 @@ DngData* NumpyToDngDataImpl(py::array_t<T> arr, uint32_t pixel_type) {
     return data;
 }
 
+// Helper to convert DngGainMap data to numpy array
+py::array_t<float> DngGainMapToNumpy(const DngGainMap& map) {
+    if (map.data.empty()) return py::array_t<float>();
+    return py::array_t<float>(
+        {map.rows, map.cols, map.planes},
+        map.data.data()
+    );
+}
+
 PYBIND11_MODULE(_native, m) {
     m.doc() = "PyDNG: low-level C++ extension (internal)";
     
@@ -173,6 +182,30 @@ PYBIND11_MODULE(_native, m) {
                    "' width=" + std::to_string(meta.width) + 
                    " height=" + std::to_string(meta.height) + ">";
         });
+    
+    // DngGainMap class
+    py::class_<DngGainMap>(m, "DngGainMap")
+        .def(py::init<>())
+        .def_readwrite("rows", &DngGainMap::rows)
+        .def_readwrite("cols", &DngGainMap::cols)
+        .def_readwrite("planes", &DngGainMap::planes)
+        .def_readwrite("spacing_v", &DngGainMap::spacingV)
+        .def_readwrite("spacing_h", &DngGainMap::spacingH)
+        .def_readwrite("origin_v", &DngGainMap::originV)
+        .def_readwrite("origin_h", &DngGainMap::originH)
+        .def_property("data", 
+            [](const DngGainMap& self) { return DngGainMapToNumpy(self); },
+            [](DngGainMap& self, py::array_t<float> array) {
+                if (array.ndim() != 3) {
+                    throw std::runtime_error("GainMap data must be 3-dimensional (rows, cols, planes)");
+                }
+                auto r = array.unchecked<3>();
+                self.rows = (uint32_t)r.shape(0);
+                self.cols = (uint32_t)r.shape(1);
+                self.planes = (uint32_t)r.shape(2);
+                self.data.assign(array.data(), array.data() + array.size());
+            })
+        .def("to_numpy", &DngGainMapToNumpy);
     
     // DngData wrapper (we'll use smart pointers to manage memory)
     py::class_<DngData, std::unique_ptr<DngData, py::nodelete>>(m, "DngData")
@@ -264,6 +297,13 @@ PYBIND11_MODULE(_native, m) {
         .def("set_white_balance", &Dng::SetWhiteBalance,
              py::arg("wb"),
              "Set white balance neutral vector (e.g., [r, g, b] gains)")
+        .def("get_gainmap", [](Dng& self) {
+            auto map = self.GetGainmap();
+            return std::unique_ptr<DngGainMap>(map);
+        }, "Get gain map from DNG file")
+        .def("set_gainmap", &Dng::SetGainmap,
+             py::arg("map"),
+             "Set gain map for DNG file")
         .def("get_bayer_pattern", &Dng::GetBayerPattern,
              "Return 2x2 Bayer tile as RGGB/GRBG/BGGR/GBRG, or empty string if not available")
         .def("set_bayer_pattern", &Dng::SetBayerPattern,

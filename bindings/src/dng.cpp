@@ -4,6 +4,7 @@
 
 #include "dng.h"
 #include "utils.h"
+#include "dng_gain_map.h"
 #include <stdexcept>
 #include <string>
 
@@ -324,6 +325,76 @@ void Dng::SetWhiteBalance(const std::vector<double>& wb) {
         neutral[i] = wb[i];
     }
     negative->SetCameraNeutral(neutral);
+}
+
+DngGainMap* Dng::GetGainmap() const {
+    if (!negative.Get()) return nullptr;
+
+    const dng_opcode_list& list = negative->OpcodeList2();
+    for (uint32 i = 0; i < list.Count(); ++i) {
+        const dng_opcode& op = list.Entry(i);
+        if (op.OpcodeID() == dngOpcode_GainMap) {
+            const auto& gainOp = static_cast<const dng_opcode_GainMap&>(op);
+            const dng_gain_map& map = gainOp.GainMap();
+
+            auto* result = new DngGainMap();
+            result->rows = map.Points().v;
+            result->cols = map.Points().h;
+            result->planes = map.Planes();
+            result->spacingV = map.Spacing().v;
+            result->spacingH = map.Spacing().h;
+            result->originV = map.Origin().v;
+            result->originH = map.Origin().h;
+
+            result->data.resize(result->rows * result->cols * result->planes);
+            for (uint32 r = 0; r < result->rows; ++r) {
+                for (uint32 c = 0; c < result->cols; ++c) {
+                    for (uint32 p = 0; p < result->planes; ++p) {
+                        result->data[r * result->cols * result->planes + c * result->planes + p] = map.Entry(r, c, p);
+                    }
+                }
+            }
+            return result;
+        }
+    }
+    return nullptr;
+}
+
+void Dng::SetGainmap(const DngGainMap* map) {
+    if (!negative.Get() || !map) return;
+
+    dng_point points(map->rows, map->cols);
+    dng_point_real64 spacing(map->spacingV, map->spacingH);
+    dng_point_real64 origin(map->originV, map->originH);
+
+    AutoPtr<dng_gain_map> dngMap(new dng_gain_map(negative->Allocator(), points, spacing, origin, map->planes));
+
+    for (uint32 r = 0; r < map->rows; ++r) {
+        for (uint32 c = 0; c < map->cols; ++c) {
+            for (uint32 p = 0; p < map->planes; ++p) {
+                dngMap->Entry(r, c, p) = map->data[r * map->cols * map->planes + c * map->planes + p];
+            }
+        }
+    }
+
+    // Default to full active area
+    dng_rect area = negative->Stage1Image() ? negative->Stage1Image()->Bounds() : dng_rect(0, 0, 0, 0);
+    if (area.IsEmpty()) {
+        // Fallback to default crop or whatever
+    }
+
+    dng_area_spec areaSpec;
+    areaSpec = dng_area_spec(area, 0, map->planes, 1, 1);
+
+    AutoPtr<dng_opcode> opcode(new dng_opcode_GainMap(areaSpec, dngMap));
+
+    dng_opcode_list& list = negative->OpcodeList2();
+    for (int32 i = (int32)list.Count() - 1; i >= 0; --i) {
+        if (list.Entry(i).OpcodeID() == dngOpcode_GainMap) {
+            list.Remove(i);
+        }
+    }
+    list.Append(opcode);
 }
 
 void Dng::SetMeta(const DngMeta* /*meta*/) {

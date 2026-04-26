@@ -53,6 +53,29 @@ class DngMeta:
     def __init__(self) -> None: ...
     def __repr__(self) -> str: ...
 
+class DngGainMap:
+    """Gain map information for a DNG file (typically used for shading correction)"""
+    
+    rows: int
+    cols: int
+    planes: int
+    spacing_v: float
+    spacing_h: float
+    origin_v: float
+    origin_h: float
+    data: NDArray[Any]
+    
+    def __init__(self) -> None: ...
+    
+    def to_numpy(self) -> NDArray[Any]:
+        """
+        Convert GainMap data to numpy array.
+        
+        Returns:
+            numpy.ndarray: Gain map data as float32 array with shape (rows, cols, planes).
+        """
+        ...
+
 class DngData:
     """Image data container for DNG files"""
     
@@ -242,6 +265,24 @@ class Dng:
         """
         ...
 
+    def get_gainmap(self) -> DngGainMap:
+        """
+        Get gain map (shading correction) from DNG file.
+        
+        Returns:
+            DngGainMap: Gain map object containing sampled scale factors.
+        """
+        ...
+    
+    def set_gainmap(self, map: DngGainMap) -> None:
+        """
+        Set gain map (shading correction) for DNG file.
+        
+        Args:
+            map: DngGainMap object to set.
+        """
+        ...
+
     def get_bayer_pattern(self) -> str:
         """2×2 Bayer tile as ``RGGB`` / ``GRBG`` / ``BGGR`` / ``GBRG``, or ``\"\"`` if not a 2×2 RGB CFA."""
         ...
@@ -271,6 +312,7 @@ __all__ = [
     "Dng",
     "DngMeta",
     "DngData",
+    "DngGainMap",
     "ErrorCode",
     "ErrorCodeType",
     "PixelType",
