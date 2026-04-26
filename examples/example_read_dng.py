@@ -19,7 +19,7 @@ def read_dng_example(file_path):
     """Read a DNG file and display its information"""
     try:
         dng = pydng.Dng(file_path, ignore_enhanced=False)
-    except RuntimeError as e:
+    except (RuntimeError, TypeError) as e:
         print(f"Error reading DNG file: {e}")
         return
 
@@ -82,16 +82,38 @@ def read_dng_example(file_path):
     # Get baseline exposure
     baseline_exposure = dng.get_baseline_exposure()
     print(f"Baseline Exposure: {baseline_exposure}")
+    print()
+
+    # Get Gainmap
+    print("Checking for Gain Map (shading correction)...")
+    gainmap = dng.get_gainmap()
+    if gainmap:
+        print(f"Gain Map Found: {gainmap.rows}x{gainmap.cols}, planes: {gainmap.planes}")
+        print(f"  Spacing: v={gainmap.spacing_v}, h={gainmap.spacing_h}")
+        print(f"  Origin: v={gainmap.origin_v}, h={gainmap.origin_h}")
+        
+        # Access data as numpy array
+        gm_data = gainmap.to_numpy()
+        print(f"Gain Map data shape: {gm_data.shape}")
+        
+        # Save to local file
+        output_name = "gainmap.npy"
+        np.save(output_name, gm_data)
+        print(f"Gain Map data saved to {output_name}")
+    else:
+        print("No Gain Map found in this DNG.")
     
     return dng, meta, numpy_array
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python example_read_dng.py <dng_file_path>")
-        print("Example: python example_read_dng.py ../extern/sample_files/01_jxl_linear_raw_integer.dng")
-        sys.exit(1)
+    # Default path relative to the script location
+    default_path = os.path.join(os.path.dirname(__file__), '..', 'extern', 'sample_files', '01_jxl_linear_raw_integer.dng')
     
-    file_path = sys.argv[1]
+    if len(sys.argv) >= 2:
+        file_path = sys.argv[1]
+    else:
+        file_path = default_path
+        print(f"Using default file: {file_path}")
     
     if not os.path.exists(file_path):
         print(f"Error: File not found: {file_path}")

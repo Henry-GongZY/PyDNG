@@ -61,6 +61,17 @@ struct DngMeta {
 };
 
 
+struct DngGainMap {
+    std::vector<float> data;
+    uint32_t rows = 0;
+    uint32_t cols = 0;
+    uint32_t planes = 0;
+    double spacingV = 0.0;
+    double spacingH = 0.0;
+    double originV = 0.0;
+    double originH = 0.0;
+};
+
 struct Dng {
     AutoPtr<dng_negative> negative;
 
@@ -86,6 +97,9 @@ public:
     DngMeta *GetColorInfo() const;
     std::vector<double> GetWhiteBalance() const;
     void SetWhiteBalance(const std::vector<double> &wb);
+
+    DngGainMap *GetGainmap() const;
+    void SetGainmap(const DngGainMap *map);
 
     void SetMeta(const DngMeta *meta);
 
