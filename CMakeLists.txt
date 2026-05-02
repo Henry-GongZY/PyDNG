@@ -48,6 +48,7 @@ if(BUILD_DNG_LIBRARY)
     if(APPLE)
         # Use @loader_path so the library is relocatable within the wheel
         set_target_properties(dng PROPERTIES 
+            MACOSX_RPATH OFF
             INSTALL_NAME_DIR "@loader_path"
             BUILD_WITH_INSTALL_RPATH TRUE)
     endif()
