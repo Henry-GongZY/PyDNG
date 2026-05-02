@@ -122,7 +122,6 @@ if(BUILD_DNG_LIBRARY)
             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
             -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
             -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-            "-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}"
             ${LIBJXL_EXTRA_ARGS}
             -DBUILD_SHARED_LIBS=OFF
             -DBUILD_TESTING=OFF
@@ -225,11 +224,7 @@ else()
         set(PREBUILT_DNG_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${PREBUILT_DNG_PATH}")
     endif()
     # Use pre-built library
-    if(APPLE)
-        find_library(DNG_LIB dng PATHS ${PREBUILT_DNG_PATH}/dngpy ${PREBUILT_DNG_PATH}/lib ${PREBUILT_DNG_PATH}/lib64 NO_DEFAULT_PATH)
-    else()
-        find_library(DNG_LIB dng PATHS ${PREBUILT_DNG_PATH}/lib ${PREBUILT_DNG_PATH}/lib64 ${PREBUILT_DNG_PATH}/dngpy NO_DEFAULT_PATH)
-    endif()
+    find_library(DNG_LIB dng PATHS ${PREBUILT_DNG_PATH}/lib ${PREBUILT_DNG_PATH}/lib64 ${PREBUILT_DNG_PATH}/dngpy NO_DEFAULT_PATH)
 
     if(NOT DNG_LIB)
         message(FATAL_ERROR "Pre-built dng library not found in ${PREBUILT_DNG_PATH}")
@@ -311,22 +306,19 @@ if(WIN32)
     endif()
 else()
     if(BUILD_DNG_LIBRARY)
-        if(APPLE OR WIN32)
-            set(DNG_DEST dngpy)
+        if(APPLE)
+            install(TARGETS dng LIBRARY DESTINATION dngpy)
         else()
-            set(DNG_DEST ${CMAKE_INSTALL_LIBDIR})
+            install(TARGETS dng LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
         endif()
-        install(TARGETS dng 
-            LIBRARY DESTINATION ${DNG_DEST}
-            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            RUNTIME DESTINATION ${DNG_DEST})
     elseif(NOT BUILD_DNG_LIBRARY)
         if(APPLE)
             file(GLOB DNG_LIBS "${PREBUILT_DNG_PATH}/dngpy/libdng.dylib" "${PREBUILT_DNG_PATH}/lib/libdng.dylib")
+            install(FILES ${DNG_LIBS} DESTINATION dngpy)
         else()
             file(GLOB DNG_LIBS "${PREBUILT_DNG_PATH}/lib/libdng.so*" "${PREBUILT_DNG_PATH}/lib64/libdng.so*")
+            install(FILES ${DNG_LIBS} DESTINATION lib)
         endif()
-        install(FILES ${DNG_LIBS} DESTINATION dngpy)
     endif()
 endif()
 if(BUILD_DNG_VALIDATE)
