@@ -109,7 +109,6 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_PYTHON_BINDINGS=OFF \
             -DBUILD_DNG_VALIDATE=OFF \
-            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
             -DCMAKE_INSTALL_PREFIX=install_dir
           cmake --build build --target install --parallel "${CMAKE_BUILD_PARALLEL_LEVEL}"
 
@@ -196,7 +195,7 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.22.0
         env:
-          CIBW_ARCHS_MACOS: "arm64 x86_64"
+          CIBW_ARCHS_MACOS: "arm64"
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
