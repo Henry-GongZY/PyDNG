@@ -67,11 +67,18 @@ if(BUILD_DNG_LIBRARY)
 
     if(NOT WIN32)
         ProcessorCount(N)
+        set(LIBJPEG_EXTRA_CFLAGS "")
+        if(APPLE AND CMAKE_OSX_ARCHITECTURES)
+            foreach(arch ${CMAKE_OSX_ARCHITECTURES})
+                set(LIBJPEG_EXTRA_CFLAGS "${LIBJPEG_EXTRA_CFLAGS} -arch ${arch}")
+            endforeach()
+        endif()
+
         ExternalProject_Add(
             libjpeg
             SOURCE_DIR ${LIBJPEG_DIR}
             BINARY_DIR ${LIBJPEG_DIR}
-            CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env "CFLAGS=-fPIC -O2" "CXXFLAGS=-fPIC -O2" sh ${LIBJPEG_DIR}/configure --prefix=${CMAKE_INSTALL_PREFIX}
+            CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env "CFLAGS=-fPIC -O2 ${LIBJPEG_EXTRA_CFLAGS}" "CXXFLAGS=-fPIC -O2 ${LIBJPEG_EXTRA_CFLAGS}" sh ${LIBJPEG_DIR}/configure --prefix=${CMAKE_INSTALL_PREFIX}
             BUILD_COMMAND make -j${N}
             BUILD_BYPRODUCTS ${LIBJPEG_DIR}/.libs/libjpeg.a
             INSTALL_COMMAND ""
@@ -112,6 +119,7 @@ if(BUILD_DNG_LIBRARY)
             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
             -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
             -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+            -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}
             ${LIBJXL_EXTRA_ARGS}
             -DBUILD_SHARED_LIBS=OFF
             -DBUILD_TESTING=OFF

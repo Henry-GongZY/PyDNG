@@ -43,3 +43,6 @@ environment = { CMAKE_ARGS = "-DBUILD_DNG_LIBRARY=OFF -DPREBUILT_DNG_PATH=./preb
 
 [tool.cibuildwheel.windows]
 environment = { CMAKE_ARGS = "-DBUILD_DNG_LIBRARY=OFF -DPREBUILT_DNG_PATH=./prebuilt_dng" }
+
+[tool.cibuildwheel.macos]
+environment = { CMAKE_ARGS = "-DBUILD_DNG_LIBRARY=OFF -DPREBUILT_DNG_PATH=./prebuilt_dng" }
