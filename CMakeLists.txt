@@ -46,11 +46,9 @@ if(BUILD_DNG_LIBRARY)
     set_target_properties(dng PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 
     if(APPLE)
-        # Use @loader_path so the library is relocatable within the wheel
-        set_target_properties(dng PROPERTIES 
-            MACOSX_RPATH OFF
-            INSTALL_NAME_DIR "@loader_path"
-            BUILD_WITH_INSTALL_RPATH TRUE)
+        # Force @loader_path at the linker level to ensure cibuildwheel/delocate sees it
+        set_target_properties(dng PROPERTIES MACOSX_RPATH OFF)
+        target_link_options(dng PRIVATE "-Wl,-install_name,@loader_path/libdng.1.dylib")
     endif()
 
     set(LIBJPEG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/libjpeg)
@@ -348,7 +346,10 @@ if(BUILD_PYTHON_BINDINGS)
     # Wheel 将 libdng 装在 site-packages/lib/、扩展在 site-packages/dngpy/；若 RUNPATH 为构建目录的绝对路径，
     # 安装后该路径不存在会导致 ImportError。使用相对 RUNPATH 指向与 dngpy 同级的 lib/。
     if(APPLE)
-        # 静态链接不再需要特殊 RPATH
+        set_target_properties(_native PROPERTIES
+            BUILD_WITH_INSTALL_RPATH TRUE
+            INSTALL_RPATH "@loader_path"
+        )
     elseif(UNIX)
         set_target_properties(_native PROPERTIES
             INSTALL_RPATH "\$ORIGIN/../lib"
