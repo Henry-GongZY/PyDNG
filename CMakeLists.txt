@@ -42,7 +42,11 @@ function(dngpy_windows_gnu_xmp_fix target)
 endfunction()
 
 if(BUILD_DNG_LIBRARY)
-    add_library(dng SHARED ${SRC_FILES})
+    if(APPLE)
+        add_library(dng STATIC ${SRC_FILES})
+    else()
+        add_library(dng SHARED ${SRC_FILES})
+    endif()
     set_target_properties(dng PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 
     set(LIBJPEG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/libjpeg)
@@ -89,9 +93,20 @@ if(BUILD_DNG_LIBRARY)
         )
     endif()
 
+    set(JXL_LIBS
+        ${JXL_BUILD_DIR}/lib/libjxl.a
+        ${JXL_BUILD_DIR}/lib/libjxl_threads.a
+        ${JXL_BUILD_DIR}/third_party/highway/libhwy.a
+        ${JXL_BUILD_DIR}/third_party/brotli/libbrotlienc-static.a
+        ${JXL_BUILD_DIR}/third_party/brotli/libbrotlidec-static.a
+        ${JXL_BUILD_DIR}/third_party/brotli/libbrotlicommon-static.a
+    )
+
     ExternalProject_Add(
         libjxl
         SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/libjxl/libjxl
+        BINARY_DIR ${JXL_BUILD_DIR}
+        BUILD_BYPRODUCTS ${JXL_LIBS}
         CMAKE_ARGS
             -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -142,6 +157,7 @@ if(BUILD_DNG_LIBRARY)
         target_compile_definitions(dng PUBLIC qMacOS=1 MAC_ENV XMP_64=1)
         target_compile_options(dng PUBLIC $<$<COMPILE_LANGUAGE:C>:-Wno-implicit-function-declaration>)
         target_link_libraries(dng PRIVATE "-framework CoreServices")
+        set_target_properties(dng PROPERTIES MACOSX_RPATH ON INSTALL_NAME_DIR "@rpath")
     elseif(WIN32)
         target_compile_definitions(dng PUBLIC qWinOS=1 WIN_ENV NOMINMAX UNICODE)
     else()
@@ -179,6 +195,16 @@ if(BUILD_DNG_LIBRARY)
             brotlienc-static
             brotlidec-static
             brotlicommon-static
+        )
+    elseif(APPLE)
+        target_link_libraries(dng PRIVATE
+            ${LIBJPEG_DIR}/.libs/libjpeg.a
+            ${JXL_BUILD_DIR}/lib/libjxl.a
+            ${JXL_BUILD_DIR}/lib/libjxl_threads.a
+            ${JXL_BUILD_DIR}/third_party/highway/libhwy.a
+            ${JXL_BUILD_DIR}/third_party/brotli/libbrotlienc-static.a
+            ${JXL_BUILD_DIR}/third_party/brotli/libbrotlidec-static.a
+            ${JXL_BUILD_DIR}/third_party/brotli/libbrotlicommon-static.a
         )
     else()
         target_link_libraries(dng PRIVATE jpeg jxl-static jxl_threads-static)
@@ -268,9 +294,9 @@ if(WIN32)
         endif()
     endif()
 else()
-    if(BUILD_DNG_LIBRARY)
+    if(BUILD_DNG_LIBRARY AND NOT APPLE)
         install(TARGETS dng LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-    else()
+    elseif(NOT BUILD_DNG_LIBRARY)
         file(GLOB DNG_LIBS "${PREBUILT_DNG_PATH}/lib/libdng.so*" "${PREBUILT_DNG_PATH}/lib64/libdng.so*")
         install(FILES ${DNG_LIBS} DESTINATION lib)
     endif()
@@ -301,9 +327,7 @@ if(BUILD_PYTHON_BINDINGS)
     # Wheel 将 libdng 装在 site-packages/lib/、扩展在 site-packages/dngpy/；若 RUNPATH 为构建目录的绝对路径，
     # 安装后该路径不存在会导致 ImportError。使用相对 RUNPATH 指向与 dngpy 同级的 lib/。
     if(APPLE)
-        set_target_properties(_native PROPERTIES
-            INSTALL_RPATH "@loader_path/../lib"
-            BUILD_RPATH "${CMAKE_BINARY_DIR}")
+        # 静态链接不再需要特殊 RPATH
     elseif(UNIX)
         set_target_properties(_native PROPERTIES
             INSTALL_RPATH "\$ORIGIN/../lib"
