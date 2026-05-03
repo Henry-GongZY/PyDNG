@@ -21,6 +21,7 @@ permissions:
 env:
   CMAKE_BUILD_PARALLEL_LEVEL: 2
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   # Same image family cibuildwheel uses for broad manylinux2014_x86_64 wheels.
   MANYLINUX_IMAGE: quay.io/pypa/manylinux2014_x86_64
 
