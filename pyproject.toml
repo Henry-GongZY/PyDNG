@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "dngpy"
-version = "0.1.1"
+version = "0.1.2"
 description = "Python bindings for Adobe DNG SDK"
 readme = "README.md"
 requires-python = ">=3.8"
