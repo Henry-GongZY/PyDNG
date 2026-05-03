@@ -88,6 +88,12 @@ if(BUILD_DNG_LIBRARY)
     endif()
 
     set(LIBJXL_EXTRA_ARGS "")
+    if(APPLE)
+        list(APPEND LIBJXL_EXTRA_ARGS
+            "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}"
+        )
+    endif()
+
     if(UNIX)
         # -C preload runs before libjxl project(); fixes brotli log2() check on manylinux/glibc.
         list(APPEND LIBJXL_EXTRA_ARGS
