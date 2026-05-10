@@ -2,7 +2,7 @@
 Type stubs for PyDNG Python bindings
 """
 
-from typing import Any, overload
+from typing import Any, overload, Union
 from numpy.typing import NDArray
 
 __version__: str
@@ -95,10 +95,10 @@ class DngData:
         Returns:
             numpy.ndarray: Image data as numpy array with shape (height, width, channels).
                 The dtype depends on pixel_type:
-                - pixel_type=1 (ttByte): uint8
-                - pixel_type=3 (ttShort): uint16
-                - pixel_type=8 (ttSShort): int16
-                - pixel_type=4 (ttLong): uint32
+                - "uint8" (pixel_type=1, ttByte)
+                - "uint16" (pixel_type=3, ttShort)
+                - "int16" (pixel_type=8, ttSShort)
+                - "uint32" (pixel_type=4, ttLong)
         """
         ...
     
@@ -162,7 +162,7 @@ class Dng:
     def set_data(
         self, 
         data: NDArray[Any], 
-        pixel_type: int, 
+        pixel_type: Union[int, str], 
         enhanced: bool = False
     ) -> None:
         """
@@ -171,16 +171,17 @@ class Dng:
         Args:
             data: NumPy array with shape (height, width, channels).
                   Supported dtypes: uint8, uint16, int16
-            pixel_type: Pixel type value:
-                        - 1 = ttByte (8-bit unsigned)
-                        - 3 = ttShort (16-bit unsigned)
-                        - 8 = ttSShort (16-bit signed)
-                        - 4 = ttLong (32-bit unsigned)
+            pixel_type: Pixel type as string or integer value:
+                        - "uint8" (1): 8-bit unsigned integer
+                        - "uint16" (3): 16-bit unsigned integer
+                        - "int16" (8): 16-bit signed integer
+                        - "uint32" (4): 32-bit unsigned integer
             enhanced: If True, set as Stage3 (enhanced) image,
                      otherwise set as Stage1 (raw) image
         
         Raises:
             RuntimeError: If data format is invalid
+            ValueError: If pixel_type string is invalid
         """
         ...
     
@@ -300,12 +301,12 @@ class Dng:
 
 # Type aliases for pixel types (for documentation purposes)
 # These are not actual constants, but type hints for clarity
-PixelType: type = int
+PixelType: type = Union[int, str]
 """Pixel type values:
-- 1: ttByte (8-bit unsigned integer)
-- 3: ttShort (16-bit unsigned integer)
-- 8: ttSShort (16-bit signed integer)
-- 4: ttLong (32-bit unsigned integer)
+- "uint8" (1): 8-bit unsigned integer
+- "uint16" (3): 16-bit unsigned integer
+- "int16" (8): 16-bit signed integer
+- "uint32" (4): 32-bit unsigned integer
 """
 
 __all__ = [
