@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir *)",
+      "Bash(cmake .. -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_DNG_VALIDATE=ON -DCMAKE_BUILD_TYPE=Release)",
+      "Bash(cmake --build . --config Release --target dng_validate)",
+      "Bash(cmake --build \"C:/Users/Henrygongzy/Desktop/Projects/OpenSource/PyDNG/build_check\" --config Release --target dng_validate)",
+      "Bash(cmake --build \"C:/Users/Henrygongzy/Desktop/Projects/OpenSource/PyDNG/build_check\" --config Release --target dng)",
+      "Bash(git stash *)"
+    ]
+  }
+}

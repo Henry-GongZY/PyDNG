@@ -17,7 +17,7 @@ int main() {
         return 1;
     }
 
-    // 获取并打印图像尺寸信息
+    // Get and print image dimension info
     DngMeta* info = dng.GetImageInfo();
     std::cout << "--- DNG Image Dimensions ---" << std::endl;
     std::cout << "Raw Width:      " << info->rawWidth << std::endl;
@@ -26,9 +26,9 @@ int main() {
     std::cout << "Cropped Height: " << info->height << std::endl;
     std::cout << "----------------------------" << std::endl;
 
-    delete info; // 记得释放内存
+    delete info; // Free allocated memory
 
-    // 获取并打印白平衡信息
+    // Get and print white balance info
     std::vector<double> wb = dng.GetWhiteBalance();
     std::cout << "--- DNG White Balance ---" << std::endl;
     if (wb.empty()) {

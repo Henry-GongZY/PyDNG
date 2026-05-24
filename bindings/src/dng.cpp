@@ -8,11 +8,13 @@
 #include <stdexcept>
 #include <string>
 
-// 前向声明工具函数
+// Forward declarations of utility functions
 std::string DNGStringToStdString(const dng_string& dngStr);
 double DNGRationalToDouble(const dng_urational& rational);
 char ColorKeyToBayerChar(uint8 key);
 uint32_t BayerStringToPhase(const std::string &p);
+
+// ── Lifecycle: constructor ─────────────────────────────────
 
 Dng::Dng(const std::string& path, bool ignore_enhanced) {
     const int err = Read(path, ignore_enhanced);
@@ -21,6 +23,8 @@ Dng::Dng(const std::string& path, bool ignore_enhanced) {
             "Dng: failed to read \"" + path + "\" (error code " + std::to_string(err) + ")");
     }
 }
+
+// ── Lifecycle: file I/O ────────────────────────────────────
 
 int Dng::Read(const std::string &path, bool ignore_enhanced) {
     try {
@@ -101,6 +105,8 @@ int Dng::Write(const std::string &path) {
     return dng_error_none;
 }
 
+// ── Image data access ──────────────────────────────────────
+
 DngData* Dng::GetData(bool enhanced) const {
     if (!negative.Get()) {
         throw std::runtime_error("DNG negative is not initialized.");
@@ -124,7 +130,7 @@ DngData* Dng::GetData(bool enhanced) const {
     data->height = dng_image_buf->Height();
     data->pixel_type = dng_image_buf->PixelType();
     data->channels = dng_image_buf->Planes();
-    
+
     int bytes_per_pixel = 0;
     switch (data->pixel_type) {
         case ttByte:   bytes_per_pixel = 1; break;
@@ -134,7 +140,7 @@ DngData* Dng::GetData(bool enhanced) const {
         case ttFloat:  bytes_per_pixel = 4; break;
         default:       bytes_per_pixel = 2; break;
     }
-    
+
     data->ptr = malloc(data->width * data->height * data->channels * bytes_per_pixel);
     if (!data->ptr) {
         delete data;
@@ -143,7 +149,7 @@ DngData* Dng::GetData(bool enhanced) const {
 
     dng_pixel_buffer buffer(dng_rect(0, 0, static_cast<int32>(data->height), static_cast<int32>(data->width)),
                             0, data->channels, data->pixel_type, pcInterleaved, data->ptr);
-    
+
     dng_image_buf->Get(buffer, dng_image::edge_none);
 
     // Default active area
@@ -156,7 +162,7 @@ DngData* Dng::GetData(bool enhanced) const {
         data->top = active_area.t;
         data->left = active_area.l;
     }
-    
+
     return data;
 }
 
@@ -192,29 +198,71 @@ void Dng::SetData(const DngData* data, bool enhanced) const {
     }
 }
 
+// ── Metadata ───────────────────────────────────────────────
+
+DngMeta* Dng::GetMeta() const {
+    auto meta = new DngMeta();
+    if (!negative.Get()) {
+        return meta;
+    }
+
+    DngMeta* exif = GetExif();
+    DngMeta* img = GetImageInfo();
+    DngMeta* color = GetColorInfo();
+
+    // Merge metadata
+    meta->make = exif->make;
+    meta->model = exif->model;
+    meta->software = exif->software;
+    meta->artist = exif->artist;
+    meta->copyright = exif->copyright;
+    meta->exposureTime = exif->exposureTime;
+    meta->fNumber = exif->fNumber;
+    meta->focalLength = exif->focalLength;
+    meta->iso = exif->iso;
+    meta->focalLength35mm = exif->focalLength35mm;
+    meta->dateTime = exif->dateTime;
+    meta->dateTimeOriginal = exif->dateTimeOriginal;
+
+    meta->width = img->width;
+    meta->height = img->height;
+    meta->rawWidth = img->rawWidth;
+    meta->rawHeight = img->rawHeight;
+
+    meta->isMonochrome = color->isMonochrome;
+    meta->colorPlanes = color->colorPlanes;
+    meta->colorSpace = color->colorSpace;
+
+    delete exif;
+    delete img;
+    delete color;
+
+    return meta;
+}
+
 DngMeta* Dng::GetExif() const {
     auto meta = new DngMeta();
     if (!negative.Get()) return meta;
 
-    // 同步元数据
+    // Synchronize metadata
     negative->SynchronizeMetadata();
-    
+
     const dng_exif* exif = negative->GetExif();
     if (exif) {
-        // 基本信息
+        // Basic info
         meta->make = DNGStringToStdString(exif->fMake);
         meta->model = DNGStringToStdString(exif->fModel);
         meta->software = DNGStringToStdString(exif->fSoftware);
         meta->artist = DNGStringToStdString(exif->fArtist);
         meta->copyright = DNGStringToStdString(exif->fCopyright);
-        
-        // 拍摄参数
+
+        // Camera settings
         meta->exposureTime = DNGRationalToDouble(exif->fExposureTime);
         meta->fNumber = DNGRationalToDouble(exif->fFNumber);
         meta->focalLength = DNGRationalToDouble(exif->fFocalLength);
         meta->focalLength35mm = exif->fFocalLengthIn35mmFilm;
-        
-        // ISO 感光度
+
+        // ISO sensitivity
         if (exif->fISOSpeed != 0) {
             meta->iso = exif->fISOSpeed;
         } else if (exif->fISOSpeedRatings[0] != 0) {
@@ -222,8 +270,8 @@ DngMeta* Dng::GetExif() const {
         } else if (exif->fStandardOutputSensitivity != 0) {
             meta->iso = exif->fStandardOutputSensitivity;
         }
-        
-        // 日期时间
+
+        // Date/time
         if (exif->fDateTime.IsValid()) {
             dng_string dateTimeStr = exif->fDateTime.Encode_ISO_8601();
             meta->dateTime = DNGStringToStdString(dateTimeStr);
@@ -240,20 +288,20 @@ DngMeta* Dng::GetImageInfo() const {
     auto meta = new DngMeta();
     if (!negative.Get()) return meta;
 
-    // 图像尺寸
+    // Image dimensions
     if (negative->Stage1Image()) {
         dng_point stage1Size = negative->Stage1Image()->Size();
         meta->rawWidth = stage1Size.h;
         meta->rawHeight = stage1Size.v;
     }
-    
-    // 获取默认裁剪尺寸（实际图像尺寸）
+
+    // Get default crop size (actual image dimensions)
     dng_urational cropSizeH = negative->DefaultCropSizeH();
     dng_urational cropSizeV = negative->DefaultCropSizeV();
     meta->width = static_cast<uint32_t>(cropSizeH.As_real64());
     meta->height = static_cast<uint32_t>(cropSizeV.As_real64());
-    
-    // 如果裁剪尺寸为0，使用原始尺寸
+
+    // Fall back to raw size if crop is 0
     if (meta->width == 0 || meta->height == 0) {
         meta->width = meta->rawWidth;
         meta->height = meta->rawHeight;
@@ -269,8 +317,8 @@ DngMeta* Dng::GetColorInfo() const {
     if (negative->Stage1Image()) {
         meta->colorPlanes = negative->Stage1Image()->Planes();
     }
-    
-    // 色彩空间
+
+    // Color space
     if (negative->IsMonochrome()) {
         meta->colorSpace = "Grayscale";
     } else {
@@ -279,44 +327,18 @@ DngMeta* Dng::GetColorInfo() const {
     return meta;
 }
 
-DngMeta* Dng::GetMeta() const {
-    auto meta = new DngMeta();
-    if (!negative.Get()) {
-        return meta;
-    }
-    
-    DngMeta* exif = GetExif();
-    DngMeta* img = GetImageInfo();
-    DngMeta* color = GetColorInfo();
-    
-    // 合并元数据
-    meta->make = exif->make;
-    meta->model = exif->model;
-    meta->software = exif->software;
-    meta->artist = exif->artist;
-    meta->copyright = exif->copyright;
-    meta->exposureTime = exif->exposureTime;
-    meta->fNumber = exif->fNumber;
-    meta->focalLength = exif->focalLength;
-    meta->iso = exif->iso;
-    meta->focalLength35mm = exif->focalLength35mm;
-    meta->dateTime = exif->dateTime;
-    meta->dateTimeOriginal = exif->dateTimeOriginal;
-    
-    meta->width = img->width;
-    meta->height = img->height;
-    meta->rawWidth = img->rawWidth;
-    meta->rawHeight = img->rawHeight;
-    
-    meta->isMonochrome = color->isMonochrome;
-    meta->colorPlanes = color->colorPlanes;
-    meta->colorSpace = color->colorSpace;
-    
-    delete exif;
-    delete img;
-    delete color;
-    
-    return meta;
+void Dng::SetMeta(const DngMeta* /*meta*/) {
+
+}
+
+// ── Exposure & white balance ───────────────────────────────
+
+double Dng::GetBaselineExposure() const {
+    return negative->BaselineExposure();
+}
+
+void Dng::SetBaselineExposure(double exposure) {
+    negative->SetBaselineExposure(exposure);
 }
 
 std::vector<double> Dng::GetWhiteBalance() const {
@@ -342,6 +364,8 @@ void Dng::SetWhiteBalance(const std::vector<double>& wb) {
     }
     negative->SetCameraNeutral(neutral);
 }
+
+// ── Gain map ────────────────────────────────────────────────
 
 DngGainMap* Dng::GetGainmap() const {
     if (!negative.Get()) return nullptr;
@@ -413,17 +437,7 @@ void Dng::SetGainmap(const DngGainMap* map) {
     list.Append(opcode);
 }
 
-void Dng::SetMeta(const DngMeta* /*meta*/) {
-
-}
-
-double Dng::GetBaselineExposure() const {
-    return negative->BaselineExposure();
-}
-
-void Dng::SetBaselineExposure(double exposure) {
-    negative->SetBaselineExposure(exposure);
-}
+// ── Bayer pattern ──────────────────────────────────────────
 
 std::string Dng::GetBayerPattern() const {
     if (!negative.Get()) return "";

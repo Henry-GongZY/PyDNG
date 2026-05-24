@@ -9,7 +9,7 @@
 
 #include "pch.h"
 
-// DNG 图像数据
+// DNG image data
 struct DngData {
     void* ptr;
     uint32 width;
@@ -22,38 +22,38 @@ struct DngData {
     DngData() : ptr(nullptr), width(0), height(0), channels(0), pixel_type(0), top(0), left(0) {}
 };
 
-// DNG 文件信息
+// DNG metadata
 struct DngMeta {
-    // 基本信息
-    std::string make;              // 相机厂商
-    std::string model;             // 相机型号
-    std::string software;          // 软件信息
-    std::string artist;            // 艺术家
-    std::string copyright;         // 版权信息
+    // Basic info
+    std::string make;              // Camera make
+    std::string model;             // Camera model
+    std::string software;          // Software
+    std::string artist;            // Artist
+    std::string copyright;         // Copyright
 
-    // 图像尺寸
-    uint32_t width;                // 图像宽度
-    uint32_t height;               // 图像高度
-    uint32_t rawWidth;             // RAW 图像宽度
-    uint32_t rawHeight;            // RAW 图像高度
+    // Image dimensions
+    uint32_t width;                // Image width
+    uint32_t height;               // Image height
+    uint32_t rawWidth;             // Raw image width
+    uint32_t rawHeight;            // Raw image height
 
-    // 拍摄参数
-    double exposureTime;           // 曝光时间（秒）
-    double fNumber;                // 光圈值
-    double focalLength;            // 焦距（mm）
-    uint32_t iso;                  // ISO 感光度
-    uint32_t focalLength35mm;      // 35mm 等效焦距
+    // Camera settings
+    double exposureTime;           // Exposure time (sec)
+    double fNumber;                // Aperture f-number
+    double focalLength;            // Focal length (mm)
+    uint32_t iso;                  // ISO sensitivity
+    uint32_t focalLength35mm;      // 35mm equivalent focal length
 
-    // 日期时间
-    std::string dateTime;           // 拍摄日期时间
-    std::string dateTimeOriginal;   // 原始拍摄日期时间
+    // Date/time
+    std::string dateTime;           // Capture date/time
+    std::string dateTimeOriginal;   // Original capture date/time
 
-    // 其他信息
-    bool isMonochrome;             // 是否为单色图像
-    uint32_t colorPlanes;          // 颜色平面数
-    std::string colorSpace;        // 色彩空间
+    // Other info
+    bool isMonochrome;             // Monochrome flag
+    uint32_t colorPlanes;          // Color plane count
+    std::string colorSpace;        // Color space
 
-    // 构造函数
+    // Constructor
     DngMeta() : width(0), height(0), rawWidth(0), rawHeight(0),
                     exposureTime(0.0), fNumber(0.0), focalLength(0.0),
                     iso(0), focalLength35mm(0), isMonochrome(false),
@@ -80,32 +80,34 @@ public:
     /// Load a DNG from disk (equivalent to default constructor then Read). Throws on failure.
     Dng(const std::string& path, bool ignore_enhanced = false);
 
+    // ── Lifecycle: file I/O ─────────────────────────────────
     int Read(const std::string&, bool);
     int Write(const std::string&);
 
+    // ── Image data access ───────────────────────────────────
     DngData* GetData(bool enhanced) const;
-
     void SetData(const DngData* data, bool enhanced) const;
 
-    double GetBaselineExposure() const;
-
-    void SetBaselineExposure(double exposure);
-
+    // ── Metadata ────────────────────────────────────────────
     DngMeta *GetMeta() const;
     DngMeta *GetExif() const;
     DngMeta *GetImageInfo() const;
     DngMeta *GetColorInfo() const;
+    void SetMeta(const DngMeta *meta);
+
+    // ── Exposure & white balance ────────────────────────────
+    double GetBaselineExposure() const;
+    void SetBaselineExposure(double exposure);
     std::vector<double> GetWhiteBalance() const;
     void SetWhiteBalance(const std::vector<double> &wb);
 
+    // ── Gain map ────────────────────────────────────────────
     DngGainMap *GetGainmap() const;
     void SetGainmap(const DngGainMap *map);
 
-    void SetMeta(const DngMeta *meta);
-
+    // ── Bayer pattern ───────────────────────────────────────
     /// Row-major 2×2 Bayer tile as "RGGB" / "GRBG" / "BGGR" / "GBRG", or empty if unavailable / not 2×2 RGB CFA.
     std::string GetBayerPattern() const;
-
     /// Set standard 2×2 Bayer phase from the same four strings (case-insensitive). Requires RGB CFA semantics; may call SetRGB() when mosaic planes are not yet set.
     void SetBayerPattern(const std::string &pattern);
 };

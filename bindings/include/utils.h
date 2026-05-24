@@ -13,21 +13,21 @@ inline int UTF8ToWChar(const char* utf8Str, int utf8Len, wchar_t* wStr, int wStr
     if (utf8Str == nullptr || wStr == nullptr || wStrLen <= 0) {
         return 0;
     }
-    // 若 utf8Len 为 0，自动计算字符串长度（不含 '\0'）
+    // If utf8Len is 0, calculate string length automatically (excluding '\0')
     int actualUtf8Len = (utf8Len == 0) ? lstrlenA(utf8Str) : utf8Len;
-    // 调用 Windows 系统 API MultiByteToWideChar，指定 UTF-8 代码页
+    // Use Windows MultiByteToWideChar with UTF-8 code page
     return MultiByteToWideChar(
-        CP_UTF8,          // 源编码：UTF-8
-        0,                // 转换标志（0 为默认）
-        utf8Str,          // 源 UTF-8 字符串
-        actualUtf8Len,    // 源字符串长度（-1 表示包含 '\0' 自动终止）
-        wStr,             // 目标宽字符串缓冲区
-        wStrLen           // 目标缓冲区最大长度（单位：wchar_t）
+        CP_UTF8,          // source encoding: UTF-8
+        0,                // flags (0 = default)
+        utf8Str,          // source UTF-8 string
+        actualUtf8Len,    // source string length (-1 = null-terminated)
+        wStr,             // destination wide-char buffer
+        wStrLen           // max length of destination buffer (in wchar_t)
     );
 }
 # endif
 
-// 将 dng_string 转换为 std::string
+// Convert dng_string to std::string
 inline std::string DNGStringToStdString(const dng_string& dngStr) {
     if (dngStr.IsEmpty()) {
         return "";
@@ -35,7 +35,7 @@ inline std::string DNGStringToStdString(const dng_string& dngStr) {
     return std::string(dngStr.Get());
 }
 
-// 将 dng_urational 转换为 double
+// Convert dng_urational to double
 inline double DNGRationalToDouble(const dng_urational& rational) {
     if (rational.d == 0) {
         return 0.0;
