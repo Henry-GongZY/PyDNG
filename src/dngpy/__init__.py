@@ -18,10 +18,11 @@ from ._native import DngData, DngMeta, ErrorCode
 __version__ = "0.1.0"
 
 PIXEL_TYPE_MAP = {
-    "uint8": 1,   # ttByte
-    "uint16": 3,  # ttShort
-    "int16": 8,   # ttSShort
-    "uint32": 4,  # ttLong
+    "uint8": 1,    # ttByte
+    "uint16": 3,   # ttShort
+    "int16": 8,    # ttSShort
+    "uint32": 4,   # ttLong
+    "float32": 11, # ttFloat
 }
 
 class Dng(_NativeDng):
@@ -33,8 +34,8 @@ class Dng(_NativeDng):
         
         Args:
             data: NumPy array with shape (height, width, channels).
-            pixel_type: Pixel type as string ("uint8", "uint16", "int16", "uint32") 
-                       or integer value (1, 3, 8, 4).
+            pixel_type: Pixel type as string ("uint8", "uint16", "int16", "uint32", "float32")
+                       or integer value (1, 3, 8, 4, 11).
             enhanced: If True, set as Stage3 (enhanced) image.
         """
         if isinstance(pixel_type, str):

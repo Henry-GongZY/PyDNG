@@ -50,6 +50,9 @@ py::object DngDataToNumpy(const DngData* data) {
         case ttLong:
             element_size = sizeof(uint32_t);
             break;
+        case ttFloat:
+            element_size = sizeof(float);
+            break;
         default:
             element_size = sizeof(uint16_t);
             break;
@@ -88,6 +91,15 @@ py::object DngDataToNumpy(const DngData* data) {
              data->channels * element_size,
              element_size},
             static_cast<int16_t*>(data->ptr),
+            free_when_done
+        );
+    } else if (element_size == sizeof(float)) {
+        return py::array_t<float>(
+            {data->height, data->width, data->channels},
+            {data->width * data->channels * element_size,
+             data->channels * element_size,
+             element_size},
+            static_cast<float*>(data->ptr),
             free_when_done
         );
     } else {
@@ -260,6 +272,8 @@ PYBIND11_MODULE(_native, m) {
                 data = NumpyToDngDataImpl(py::cast<py::array_t<uint16_t>>(arr), pixel_type);
             } else if (dtype.is(py::dtype::of<int16_t>())) {
                 data = NumpyToDngDataImpl(py::cast<py::array_t<int16_t>>(arr), pixel_type);
+            } else if (dtype.is(py::dtype::of<float>())) {
+                data = NumpyToDngDataImpl(py::cast<py::array_t<float>>(arr), pixel_type);
             } else {
                 // Try generic conversion
                 py::array_t<uint16_t> converted = arr.cast<py::array_t<uint16_t>>();
