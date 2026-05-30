@@ -86,7 +86,7 @@ public:
 
     // ── Image data access ───────────────────────────────────
     DngData* GetData(bool enhanced) const;
-    void SetData(const DngData* data, bool enhanced) const;
+    void SetData(const DngData* data, bool enhanced);
 
     // ── Metadata ────────────────────────────────────────────
     DngMeta *GetMeta() const;

@@ -260,11 +260,10 @@ PYBIND11_MODULE(_native, m) {
            "Get image data as DngData object")
         .def("set_data", [](Dng& self, py::array arr, uint32_t pixel_type, bool enhanced) {
             DngData* data = nullptr;
-            
+
             // Get dtype
             py::dtype dtype = arr.dtype();
-            std::string dtype_str = py::str(dtype);
-            
+
             // Try to convert based on dtype
             if (dtype.is(py::dtype::of<uint8_t>())) {
                 data = NumpyToDngDataImpl(py::cast<py::array_t<uint8_t>>(arr), pixel_type);
@@ -279,7 +278,7 @@ PYBIND11_MODULE(_native, m) {
                 py::array_t<uint16_t> converted = arr.cast<py::array_t<uint16_t>>();
                 data = NumpyToDngDataImpl(converted, pixel_type);
             }
-            
+
             self.SetData(data, enhanced);
             delete data;
         }, py::arg("data"), py::arg("pixel_type"), py::arg("enhanced") = false,

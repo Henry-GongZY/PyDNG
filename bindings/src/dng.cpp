@@ -166,7 +166,7 @@ DngData* Dng::GetData(bool enhanced) const {
     return data;
 }
 
-void Dng::SetData(const DngData* data, bool enhanced) const {
+void Dng::SetData(const DngData* data, bool enhanced) {
     dng_host host;
     host.SetPreferredSize(0);
     host.SetMinimumSize(0);
@@ -174,6 +174,10 @@ void Dng::SetData(const DngData* data, bool enhanced) const {
     host.ValidateSizes();
     if (host.MinimumSize())
         host.SetForPreview(true);
+
+    if (!negative.Get()) {
+        negative.Reset(host.Make_dng_negative());
+    }
 
     AutoPtr<dng_image> dng_img;
     dng_img.Reset(host.Make_dng_image(dng_rect(0, 0, static_cast<int32>(data->height), static_cast<int32>(data->width)), data->channels, data->pixel_type));
