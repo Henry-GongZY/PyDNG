@@ -15,7 +15,7 @@ if hasattr(os, "add_dll_directory"):
 from ._native import Dng as _NativeDng
 from ._native import DngData, DngMeta, ErrorCode
 
-__version__ = "0.1.0"
+__version__ = "0.1.2"
 
 PIXEL_TYPE_MAP = {
     "uint8": 1,    # ttByte
