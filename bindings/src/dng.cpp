@@ -190,6 +190,8 @@ void Dng::SetData(const DngData* data, bool enhanced) {
     else {
         negative->SetActiveArea(dng_rect(0, 0, static_cast<int32>(data->height), static_cast<int32>(data->width)));
         negative->SetStage1Image(dng_img);
+        negative->ClearRawLossyCompressedImage();
+        negative->ClearRawLossyCompressedImageDigest();
         negative->SetOriginalSizes(dng_point(static_cast<int32>(data->height), static_cast<int32>(data->width)));
         negative->SetDefaultCropSize(static_cast<int32>(data->width), static_cast<int32>(data->height));
         negative->SetDefaultCropOrigin(0, 0);
