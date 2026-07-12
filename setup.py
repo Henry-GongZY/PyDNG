@@ -6,7 +6,7 @@ This setup.py is provided for compatibility, but pyproject.toml is the primary c
 
 from setuptools import find_packages, setup
 
-version = "0.1.2"
+version = "0.1.3"
 
 try:
     with open("README.md", "r", encoding="utf-8") as f:

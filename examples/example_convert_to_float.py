@@ -28,14 +28,13 @@ def convert_to_float32(input_path, output_path):
         print(f"Failed to open DNG: {e}")
         return
 
-    meta = dng.get_meta()
+    meta = dng.metadata
     print(f"  Source: {meta.make} {meta.model}")
     print(f"  Dimensions: {meta.width} x {meta.height}")
     print(f"  Color planes: {meta.color_planes}, Space: {meta.color_space}")
 
     # 2. Get Stage1 image data and convert to float32
-    raw_data = dng.get_data(enhanced=False)
-    raw = raw_data.to_numpy()
+    raw = dng.raw_pixels
     print(f"  Raw array: shape={raw.shape}, dtype={raw.dtype}")
 
     NORM_TABLE = {
@@ -46,7 +45,7 @@ def convert_to_float32(input_path, output_path):
         np.dtype("float32"): (1.0,            "float"),
     }
 
-    norm, label = NORM_TABLE.get(raw.dtype, (1.0, "unknown"))
+    _, label = NORM_TABLE.get(raw.dtype, (1.0, "unknown"))
 
     if raw.dtype == np.int16:
         # Map [-32768, 32767] → [0.0, 1.0]
@@ -61,11 +60,11 @@ def convert_to_float32(input_path, output_path):
 
     # 3. Replace image data on the *same* Dng object.
     #    This keeps all metadata from the original file intact.
-    dng.set_data(raw, "uint16", enhanced=False)
+    dng.set_raw_pixels(raw_float)
 
     # 4. Write
     print(f"Writing: {output_path}")
-    err = dng.write(output_path)
+    err = dng.save(output_path)
     if err == dngpy.ErrorCode.NONE:
         size_mb = os.path.getsize(output_path) / (1024 * 1024)
         print(f"  Done — {size_mb:.1f} MB written.")

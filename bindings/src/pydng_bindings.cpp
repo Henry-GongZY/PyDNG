@@ -26,120 +26,46 @@ const dng_error_code ErrorCode::WRITE_FILE = dng_error_write_file;
 const dng_error_code ErrorCode::BAD_FORMAT = dng_error_bad_format;
 const dng_error_code ErrorCode::UNKNOWN = dng_error_unknown;
 
-// Helper function to convert DngData to numpy array
-py::object DngDataToNumpy(const DngData* data) {
-    if (!data || !data->ptr) {
-        throw std::runtime_error("Invalid DngData pointer");
-    }
-    
-    // Determine element size and type based on pixel type
-    size_t element_size = 0;
-    bool is_signed = false;
-    
-    switch (data->pixel_type) {
-        case ttByte:
-            element_size = sizeof(uint8_t);
-            break;
-        case ttShort:
-            element_size = sizeof(uint16_t);
-            break;
-        case ttSShort:
-            element_size = sizeof(int16_t);
-            is_signed = true;
-            break;
-        case ttLong:
-            element_size = sizeof(uint32_t);
-            break;
-        case ttFloat:
-            element_size = sizeof(float);
-            break;
-        default:
-            element_size = sizeof(uint16_t);
-            break;
-    }
-    
-    size_t total_size = data->width * data->height * data->channels * element_size;
-    
-    // Create numpy array from buffer
-    py::capsule free_when_done(data->ptr, [](void *f) {
-        free(f);
-    });
-    
-    // Return appropriate numpy array type
-    if (element_size == sizeof(uint8_t)) {
-        return py::array_t<uint8_t>(
-            {data->height, data->width, data->channels},
-            {data->width * data->channels * element_size,
-             data->channels * element_size,
-             element_size},
-            static_cast<uint8_t*>(data->ptr),
-            free_when_done
-        );
-    } else if (element_size == sizeof(uint16_t) && !is_signed) {
-        return py::array_t<uint16_t>(
-            {data->height, data->width, data->channels},
-            {data->width * data->channels * element_size,
-             data->channels * element_size,
-             element_size},
-            static_cast<uint16_t*>(data->ptr),
-            free_when_done
-        );
-    } else if (element_size == sizeof(int16_t) && is_signed) {
-        return py::array_t<int16_t>(
-            {data->height, data->width, data->channels},
-            {data->width * data->channels * element_size,
-             data->channels * element_size,
-             element_size},
-            static_cast<int16_t*>(data->ptr),
-            free_when_done
-        );
-    } else if (element_size == sizeof(float)) {
-        return py::array_t<float>(
-            {data->height, data->width, data->channels},
-            {data->width * data->channels * element_size,
-             data->channels * element_size,
-             element_size},
-            static_cast<float*>(data->ptr),
-            free_when_done
-        );
-    } else {
-        // For other types, return as uint8_t array
-        return py::array_t<uint8_t>(
-            {data->height, data->width, data->channels},
-            {data->width * data->channels * element_size,
-             data->channels * element_size,
-             element_size},
-            static_cast<uint8_t*>(data->ptr),
-            free_when_done
-        );
+py::dtype DtypeForPixelType(uint32_t pixel_type) {
+    switch (pixel_type) {
+        case ttByte: return py::dtype::of<uint8_t>();
+        case ttShort: return py::dtype::of<uint16_t>();
+        case ttSShort: return py::dtype::of<int16_t>();
+        case ttLong: return py::dtype::of<uint32_t>();
+        case ttFloat: return py::dtype::of<float>();
+        default: throw std::invalid_argument("Unsupported DNG pixel type");
     }
 }
 
-// Helper function to create DngData from numpy array
-template<typename T>
-DngData* NumpyToDngDataImpl(py::array_t<T> arr, uint32_t pixel_type) {
-    auto data = new DngData();
-    
-    py::buffer_info buf_info = arr.request();
-    
-    if (buf_info.ndim != 3) {
-        delete data;
-        throw std::runtime_error("Array must be 3-dimensional (height, width, channels)");
+// Return an independent NumPy-owned copy. No C++ buffer or capsule survives this call.
+py::array DngDataToNumpy(const DngData& data) {
+    if (!data.Data()) {
+        throw std::runtime_error("DNG image data is empty");
     }
-    
-    data->height = buf_info.shape[0];
-    data->width = buf_info.shape[1];
-    data->channels = buf_info.shape[2];
-    data->pixel_type = pixel_type;
-    data->top = 0;
-    data->left = 0;
-    
-    // Determine element size
-    size_t element_size = sizeof(T);
-    size_t total_size = data->width * data->height * data->channels * element_size;
-    data->ptr = malloc(total_size);
-    memcpy(data->ptr, buf_info.ptr, total_size);
-    
+    py::array result(DtypeForPixelType(data.pixel_type),
+                     {data.height, data.width, data.channels});
+    std::memcpy(result.mutable_data(), data.Data(), data.bytes.size());
+    return result;
+}
+
+DngData NumpyToDngData(const py::array& arr, uint32_t pixel_type) {
+    if (arr.ndim() != 3) {
+        throw std::invalid_argument("Array must have shape (height, width, channels)");
+    }
+    if (!(arr.flags() & py::array::c_style)) {
+        throw std::invalid_argument("Array must be C-contiguous");
+    }
+    if (!arr.dtype().is(DtypeForPixelType(pixel_type))) {
+        throw std::invalid_argument("Array dtype does not match pixel_type");
+    }
+
+    DngData data;
+    data.height = static_cast<uint32>(arr.shape(0));
+    data.width = static_cast<uint32>(arr.shape(1));
+    data.channels = static_cast<uint32>(arr.shape(2));
+    data.pixel_type = pixel_type;
+    data.bytes.resize(arr.nbytes());
+    std::memcpy(data.Data(), arr.data(), data.bytes.size());
     return data;
 }
 
@@ -219,8 +145,8 @@ PYBIND11_MODULE(_native, m) {
             })
         .def("to_numpy", &DngGainMapToNumpy);
     
-    // DngData wrapper (we'll use smart pointers to manage memory)
-    py::class_<DngData, std::unique_ptr<DngData, py::nodelete>>(m, "DngData")
+    // Image metadata / compatibility object. Pixel buffers are always RAII-owned.
+    py::class_<DngData>(m, "DngData")
         .def(py::init<>())
         .def_readonly("width", &DngData::width)
         .def_readonly("height", &DngData::height)
@@ -228,9 +154,6 @@ PYBIND11_MODULE(_native, m) {
         .def_readonly("pixel_type", &DngData::pixel_type)
         .def_readonly("top", &DngData::top)
         .def_readonly("left", &DngData::left)
-        .def("to_numpy", [](DngData* data) -> py::object {
-            return DngDataToNumpy(data);
-        }, "Convert DngData to numpy array")
         .def("__repr__", [](const DngData& data) {
             return "<DngData width=" + std::to_string(data.width) + 
                    " height=" + std::to_string(data.height) + 
@@ -239,71 +162,35 @@ PYBIND11_MODULE(_native, m) {
     
     // Dng class
     py::class_<Dng>(m, "Dng")
-        .def(py::init<>())
         .def(py::init([](const std::string& path, bool ignore_enhanced) {
                  return new Dng(path, ignore_enhanced);
              }),
              py::arg("path"),
              py::arg("ignore_enhanced") = false,
-             "Load a DNG from path (same as Dng() then read). Raises RuntimeError on failure.")
-        .def("read", &Dng::Read, 
-             py::arg("path"), 
-             py::arg("ignore_enhanced") = false,
-             "Read a DNG file from disk")
-        .def("write", &Dng::Write,
+             "Load a DNG from path. Raises RuntimeError on failure.")
+        .def("_save", &Dng::Write,
              py::arg("path"),
-             "Write the DNG file to disk")
-        .def("get_data", [](Dng& self, bool enhanced) {
-            auto data = self.GetData(enhanced);
-            return std::unique_ptr<DngData, py::nodelete>(data);
+             "Internal save implementation")
+        .def("_get_pixels", [](Dng& self, bool enhanced) {
+            return DngDataToNumpy(self.GetData(enhanced));
         }, py::arg("enhanced") = false,
-           "Get image data as DngData object")
-        .def("set_data", [](Dng& self, py::array arr, uint32_t pixel_type, bool enhanced) {
-            DngData* data = nullptr;
-
-            // Get dtype
-            py::dtype dtype = arr.dtype();
-
-            // Try to convert based on dtype
-            if (dtype.is(py::dtype::of<uint8_t>())) {
-                data = NumpyToDngDataImpl(py::cast<py::array_t<uint8_t>>(arr), pixel_type);
-            } else if (dtype.is(py::dtype::of<uint16_t>())) {
-                data = NumpyToDngDataImpl(py::cast<py::array_t<uint16_t>>(arr), pixel_type);
-            } else if (dtype.is(py::dtype::of<int16_t>())) {
-                data = NumpyToDngDataImpl(py::cast<py::array_t<int16_t>>(arr), pixel_type);
-            } else if (dtype.is(py::dtype::of<float>())) {
-                data = NumpyToDngDataImpl(py::cast<py::array_t<float>>(arr), pixel_type);
-            } else {
-                // Try generic conversion
-                py::array_t<uint16_t> converted = arr.cast<py::array_t<uint16_t>>();
-                data = NumpyToDngDataImpl(converted, pixel_type);
-            }
-
-            self.SetData(data, enhanced);
-            delete data;
+           "Internal pixel retrieval implementation")
+        .def("_get_data_info", &Dng::GetDataInfo,
+             py::arg("enhanced") = false,
+             "Internal image layout retrieval implementation")
+        .def("_set_pixels", [](Dng& self, py::array arr, uint32_t pixel_type, bool enhanced) {
+            self.SetData(NumpyToDngData(arr, pixel_type), enhanced);
         }, py::arg("data"), py::arg("pixel_type"), py::arg("enhanced") = false,
-           "Set image data from numpy array")
+           "Internal pixel update implementation")
         .def("get_baseline_exposure", &Dng::GetBaselineExposure,
              "Get baseline exposure value")
         .def("set_baseline_exposure", &Dng::SetBaselineExposure,
              py::arg("exposure"),
              "Set baseline exposure value")
-        .def("get_meta", [](Dng& self) {
-            auto meta = self.GetMeta();
-            return std::unique_ptr<DngMeta>(meta);
-        }, "Get metadata from DNG file")
-        .def("get_exif", [](Dng& self) {
-            auto meta = self.GetExif();
-            return std::unique_ptr<DngMeta>(meta);
-        }, "Get EXIF metadata from DNG file")
-        .def("get_image_info", [](Dng& self) {
-            auto meta = self.GetImageInfo();
-            return std::unique_ptr<DngMeta>(meta);
-        }, "Get image geometry and dimensions from DNG file")
-        .def("get_color_info", [](Dng& self) {
-            auto meta = self.GetColorInfo();
-            return std::unique_ptr<DngMeta>(meta);
-        }, "Get color space and planes info from DNG file")
+        .def("_get_metadata", &Dng::GetMeta, "Internal metadata retrieval implementation")
+        .def("_get_exif", &Dng::GetExif, "Internal EXIF retrieval implementation")
+        .def("_get_image_info", &Dng::GetImageInfo, "Internal image-info retrieval implementation")
+        .def("_get_color_info", &Dng::GetColorInfo, "Internal color-info retrieval implementation")
         .def("set_meta", &Dng::SetMeta,
              py::arg("meta"),
              "Set metadata for DNG file")
@@ -325,4 +212,3 @@ PYBIND11_MODULE(_native, m) {
              py::arg("pattern"),
              "Set 2x2 Bayer phase; pattern must be RGGB, GRBG, BGGR, or GBRG (case-insensitive)");
 }
-

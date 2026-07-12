@@ -107,7 +107,7 @@ int Dng::Write(const std::string &path) {
 
 // ── Image data access ──────────────────────────────────────
 
-DngData* Dng::GetData(bool enhanced) const {
+DngData Dng::GetData(bool enhanced) const {
     if (!negative.Get()) {
         throw std::runtime_error("DNG negative is not initialized.");
     }
@@ -125,14 +125,14 @@ DngData* Dng::GetData(bool enhanced) const {
         }
     }
 
-    auto data = new DngData();
-    data->width = dng_image_buf->Width();
-    data->height = dng_image_buf->Height();
-    data->pixel_type = dng_image_buf->PixelType();
-    data->channels = dng_image_buf->Planes();
+    DngData data;
+    data.width = dng_image_buf->Width();
+    data.height = dng_image_buf->Height();
+    data.pixel_type = dng_image_buf->PixelType();
+    data.channels = dng_image_buf->Planes();
 
     int bytes_per_pixel = 0;
-    switch (data->pixel_type) {
+    switch (data.pixel_type) {
         case ttByte:   bytes_per_pixel = 1; break;
         case ttShort:  bytes_per_pixel = 2; break;
         case ttSShort: bytes_per_pixel = 2; break;
@@ -141,32 +141,53 @@ DngData* Dng::GetData(bool enhanced) const {
         default:       bytes_per_pixel = 2; break;
     }
 
-    data->ptr = malloc(data->width * data->height * data->channels * bytes_per_pixel);
-    if (!data->ptr) {
-        delete data;
-        throw std::runtime_error("Failed to allocate memory for image data.");
-    }
+    data.bytes.resize(static_cast<size_t>(data.width) * data.height * data.channels * bytes_per_pixel);
 
-    dng_pixel_buffer buffer(dng_rect(0, 0, static_cast<int32>(data->height), static_cast<int32>(data->width)),
-                            0, data->channels, data->pixel_type, pcInterleaved, data->ptr);
+    dng_pixel_buffer buffer(dng_rect(0, 0, static_cast<int32>(data.height), static_cast<int32>(data.width)),
+                            0, data.channels, data.pixel_type, pcInterleaved, data.Data());
 
     dng_image_buf->Get(buffer, dng_image::edge_none);
 
     // Default active area
-    data->top = 0;
-    data->left = 0;
+    data.top = 0;
+    data.left = 0;
 
     // Try to get linearization active area if available
     if (negative->GetLinearizationInfo()) {
         auto active_area = negative->GetLinearizationInfo()->fActiveArea;
-        data->top = active_area.t;
-        data->left = active_area.l;
+        data.top = active_area.t;
+        data.left = active_area.l;
     }
 
     return data;
 }
 
-void Dng::SetData(const DngData* data, bool enhanced) {
+DngData Dng::GetDataInfo(bool enhanced) const {
+    if (!negative.Get()) {
+        throw std::runtime_error("DNG negative is not initialized.");
+    }
+
+    const dng_image* image = enhanced ? negative->Stage3Image() : negative->Stage1Image();
+    if (!image) {
+        throw std::runtime_error(enhanced
+            ? "Stage 3 (enhanced) image data is not available in this DNG."
+            : "Stage 1 (raw) image data is not available in this DNG.");
+    }
+
+    DngData data;
+    data.width = image->Width();
+    data.height = image->Height();
+    data.channels = image->Planes();
+    data.pixel_type = image->PixelType();
+    if (negative->GetLinearizationInfo()) {
+        const dng_rect active_area = negative->GetLinearizationInfo()->fActiveArea;
+        data.top = active_area.t;
+        data.left = active_area.l;
+    }
+    return data;
+}
+
+void Dng::SetData(const DngData& data, bool enhanced) {
     dng_host host;
     host.SetPreferredSize(0);
     host.SetMinimumSize(0);
@@ -179,26 +200,30 @@ void Dng::SetData(const DngData* data, bool enhanced) {
         negative.Reset(host.Make_dng_negative());
     }
 
+    if (!data.Data()) {
+        throw std::invalid_argument("Dng::SetData: image data is empty");
+    }
+
     AutoPtr<dng_image> dng_img;
-    dng_img.Reset(host.Make_dng_image(dng_rect(0, 0, static_cast<int32>(data->height), static_cast<int32>(data->width)), data->channels, data->pixel_type));
-    dng_pixel_buffer buffer(dng_rect(0, 0, static_cast<int32>(data->height), static_cast<int32>(data->width)), 0, data->channels, data->pixel_type, pcInterleaved, data->ptr);
+    dng_img.Reset(host.Make_dng_image(dng_rect(0, 0, static_cast<int32>(data.height), static_cast<int32>(data.width)), data.channels, data.pixel_type));
+    dng_pixel_buffer buffer(dng_rect(0, 0, static_cast<int32>(data.height), static_cast<int32>(data.width)), 0, data.channels, data.pixel_type, pcInterleaved, const_cast<void*>(data.Data()));
     dng_img->Put(buffer);
 
     if (enhanced) {
         negative->SetStage3Image(dng_img);
     }
     else {
-        negative->SetActiveArea(dng_rect(0, 0, static_cast<int32>(data->height), static_cast<int32>(data->width)));
+        negative->SetActiveArea(dng_rect(0, 0, static_cast<int32>(data.height), static_cast<int32>(data.width)));
         negative->SetStage1Image(dng_img);
         negative->ClearRawLossyCompressedImage();
         negative->ClearRawLossyCompressedImageDigest();
-        negative->SetOriginalSizes(dng_point(static_cast<int32>(data->height), static_cast<int32>(data->width)));
-        negative->SetDefaultCropSize(static_cast<int32>(data->width), static_cast<int32>(data->height));
+        negative->SetOriginalSizes(dng_point(static_cast<int32>(data.height), static_cast<int32>(data.width)));
+        negative->SetDefaultCropSize(static_cast<int32>(data.width), static_cast<int32>(data.height));
         negative->SetDefaultCropOrigin(0, 0);
         negative->SetRGB();
         AutoPtr<dng_image> empty_stage3;
         negative->SetStage3Image(empty_stage3);
-        if (data->channels == 3) {
+        if (data.channels == 3) {
             negative->ClearMosaicInfo();
         }
     }
@@ -206,48 +231,44 @@ void Dng::SetData(const DngData* data, bool enhanced) {
 
 // ── Metadata ───────────────────────────────────────────────
 
-DngMeta* Dng::GetMeta() const {
-    auto meta = new DngMeta();
+DngMeta Dng::GetMeta() const {
+    DngMeta meta;
     if (!negative.Get()) {
         return meta;
     }
 
-    DngMeta* exif = GetExif();
-    DngMeta* img = GetImageInfo();
-    DngMeta* color = GetColorInfo();
+    const DngMeta exif = GetExif();
+    const DngMeta img = GetImageInfo();
+    const DngMeta color = GetColorInfo();
 
     // Merge metadata
-    meta->make = exif->make;
-    meta->model = exif->model;
-    meta->software = exif->software;
-    meta->artist = exif->artist;
-    meta->copyright = exif->copyright;
-    meta->exposureTime = exif->exposureTime;
-    meta->fNumber = exif->fNumber;
-    meta->focalLength = exif->focalLength;
-    meta->iso = exif->iso;
-    meta->focalLength35mm = exif->focalLength35mm;
-    meta->dateTime = exif->dateTime;
-    meta->dateTimeOriginal = exif->dateTimeOriginal;
+    meta.make = exif.make;
+    meta.model = exif.model;
+    meta.software = exif.software;
+    meta.artist = exif.artist;
+    meta.copyright = exif.copyright;
+    meta.exposureTime = exif.exposureTime;
+    meta.fNumber = exif.fNumber;
+    meta.focalLength = exif.focalLength;
+    meta.iso = exif.iso;
+    meta.focalLength35mm = exif.focalLength35mm;
+    meta.dateTime = exif.dateTime;
+    meta.dateTimeOriginal = exif.dateTimeOriginal;
 
-    meta->width = img->width;
-    meta->height = img->height;
-    meta->rawWidth = img->rawWidth;
-    meta->rawHeight = img->rawHeight;
+    meta.width = img.width;
+    meta.height = img.height;
+    meta.rawWidth = img.rawWidth;
+    meta.rawHeight = img.rawHeight;
 
-    meta->isMonochrome = color->isMonochrome;
-    meta->colorPlanes = color->colorPlanes;
-    meta->colorSpace = color->colorSpace;
-
-    delete exif;
-    delete img;
-    delete color;
+    meta.isMonochrome = color.isMonochrome;
+    meta.colorPlanes = color.colorPlanes;
+    meta.colorSpace = color.colorSpace;
 
     return meta;
 }
 
-DngMeta* Dng::GetExif() const {
-    auto meta = new DngMeta();
+DngMeta Dng::GetExif() const {
+    DngMeta meta;
     if (!negative.Get()) return meta;
 
     // Synchronize metadata
@@ -256,79 +277,79 @@ DngMeta* Dng::GetExif() const {
     const dng_exif* exif = negative->GetExif();
     if (exif) {
         // Basic info
-        meta->make = DNGStringToStdString(exif->fMake);
-        meta->model = DNGStringToStdString(exif->fModel);
-        meta->software = DNGStringToStdString(exif->fSoftware);
-        meta->artist = DNGStringToStdString(exif->fArtist);
-        meta->copyright = DNGStringToStdString(exif->fCopyright);
+        meta.make = DNGStringToStdString(exif->fMake);
+        meta.model = DNGStringToStdString(exif->fModel);
+        meta.software = DNGStringToStdString(exif->fSoftware);
+        meta.artist = DNGStringToStdString(exif->fArtist);
+        meta.copyright = DNGStringToStdString(exif->fCopyright);
 
         // Camera settings
-        meta->exposureTime = DNGRationalToDouble(exif->fExposureTime);
-        meta->fNumber = DNGRationalToDouble(exif->fFNumber);
-        meta->focalLength = DNGRationalToDouble(exif->fFocalLength);
-        meta->focalLength35mm = exif->fFocalLengthIn35mmFilm;
+        meta.exposureTime = DNGRationalToDouble(exif->fExposureTime);
+        meta.fNumber = DNGRationalToDouble(exif->fFNumber);
+        meta.focalLength = DNGRationalToDouble(exif->fFocalLength);
+        meta.focalLength35mm = exif->fFocalLengthIn35mmFilm;
 
         // ISO sensitivity
         if (exif->fISOSpeed != 0) {
-            meta->iso = exif->fISOSpeed;
+            meta.iso = exif->fISOSpeed;
         } else if (exif->fISOSpeedRatings[0] != 0) {
-            meta->iso = exif->fISOSpeedRatings[0];
+            meta.iso = exif->fISOSpeedRatings[0];
         } else if (exif->fStandardOutputSensitivity != 0) {
-            meta->iso = exif->fStandardOutputSensitivity;
+            meta.iso = exif->fStandardOutputSensitivity;
         }
 
         // Date/time
         if (exif->fDateTime.IsValid()) {
             dng_string dateTimeStr = exif->fDateTime.Encode_ISO_8601();
-            meta->dateTime = DNGStringToStdString(dateTimeStr);
+            meta.dateTime = DNGStringToStdString(dateTimeStr);
         }
         if (exif->fDateTimeOriginal.IsValid()) {
             dng_string dateTimeStr = exif->fDateTimeOriginal.Encode_ISO_8601();
-            meta->dateTimeOriginal = DNGStringToStdString(dateTimeStr);
+            meta.dateTimeOriginal = DNGStringToStdString(dateTimeStr);
         }
     }
     return meta;
 }
 
-DngMeta* Dng::GetImageInfo() const {
-    auto meta = new DngMeta();
+DngMeta Dng::GetImageInfo() const {
+    DngMeta meta;
     if (!negative.Get()) return meta;
 
     // Image dimensions
     if (negative->Stage1Image()) {
         dng_point stage1Size = negative->Stage1Image()->Size();
-        meta->rawWidth = stage1Size.h;
-        meta->rawHeight = stage1Size.v;
+        meta.rawWidth = stage1Size.h;
+        meta.rawHeight = stage1Size.v;
     }
 
     // Get default crop size (actual image dimensions)
     dng_urational cropSizeH = negative->DefaultCropSizeH();
     dng_urational cropSizeV = negative->DefaultCropSizeV();
-    meta->width = static_cast<uint32_t>(cropSizeH.As_real64());
-    meta->height = static_cast<uint32_t>(cropSizeV.As_real64());
+    meta.width = static_cast<uint32_t>(cropSizeH.As_real64());
+    meta.height = static_cast<uint32_t>(cropSizeV.As_real64());
 
     // Fall back to raw size if crop is 0
-    if (meta->width == 0 || meta->height == 0) {
-        meta->width = meta->rawWidth;
-        meta->height = meta->rawHeight;
+    if (meta.width == 0 || meta.height == 0) {
+        meta.width = meta.rawWidth;
+        meta.height = meta.rawHeight;
     }
     return meta;
 }
 
-DngMeta* Dng::GetColorInfo() const {
-    auto meta = new DngMeta();
+DngMeta Dng::GetColorInfo() const {
+    DngMeta meta;
     if (!negative.Get()) return meta;
 
-    meta->isMonochrome = negative->IsMonochrome();
+    meta.isMonochrome = negative->IsMonochrome();
     if (negative->Stage1Image()) {
-        meta->colorPlanes = negative->Stage1Image()->Planes();
+        meta.colorPlanes = negative->Stage1Image()->Planes();
     }
 
     // Color space
     if (negative->IsMonochrome()) {
-        meta->colorSpace = "Grayscale";
+        meta.colorSpace = "Grayscale";
     } else {
-        meta->colorSpace = "RGB";
+        meta.colorSpace = "RGB";
     }
     return meta;
 }

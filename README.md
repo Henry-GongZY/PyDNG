@@ -112,20 +112,18 @@ import dngpy
 import numpy as np
 
 # Load from path (raises RuntimeError on failure)
-dng = dngpy.Dng("input.dng", ignore_enhanced=False)
+dng = dngpy.Dng("input.dng")
 
-meta = dng.get_meta()
-print(f"Camera: {meta.make} {meta.model}")
-print(f"Image size: {meta.width} x {meta.height}")
-print(f"ISO: {meta.iso}")
-print(f"Exposure time: {meta.exposure_time} s")
+pixels = dng.raw_pixels
+info = dng.image_info
+exif = dng.exif
+color = dng.color_info
 
-data = dng.get_data(enhanced=False)
-numpy_array = data.to_numpy()
-print(f"Image shape: {numpy_array.shape}")
+print(f"Camera: {exif.make} {exif.model}")
+print(f"Image size: {info.width} x {info.height}")
+print(f"Color: {color.color_space}")
+print(f"Pixel array: {pixels.shape}, {pixels.dtype}")
 ```
-
-You can also use `dng = dngpy.Dng()` followed by `dng.read(path)` if you prefer checking `ErrorCode` instead of exceptions.
 
 ### Write a DNG
 
@@ -136,30 +134,14 @@ import numpy as np
 height, width, channels = 1000, 1500, 3
 image_data = np.random.randint(0, 65535, size=(height, width, channels), dtype=np.uint16)
 
-dng = dngpy.Dng()
+dng = dngpy.Dng("template.dng")
 
-# pixel_type can be an int or a string:
-#   "uint16" / 3 = ttShort (16-bit unsigned)
-#   "uint8"  / 1 = ttByte  (8-bit unsigned)
-dng.set_data(image_data, "uint16", enhanced=False)
+dng.set_raw_pixels(image_data)
 
-meta = dngpy.DngMeta()
-meta.make = "My Camera"
-meta.model = "Example"
-meta.software = "dngpy"
-meta.width = width
-meta.height = height
-meta.color_planes = channels
-meta.iso = 100
-meta.exposure_time = 1.0 / 60.0
-meta.f_number = 2.8
-meta.focal_length = 50.0
-
-dng.set_meta(meta)
 dng.set_baseline_exposure(0.5)
 dng.set_white_balance([1.0, 1.0, 1.0])
 
-error_code = dng.write("output.dng")
+error_code = dng.save("output.dng")
 if error_code != dngpy.ErrorCode.NONE:
     print(f"Write failed, error code: {error_code}")
 ```
@@ -172,38 +154,36 @@ Main entry point for reading and writing DNG files.
 
 #### Constructor
 
-- `Dng()` — empty object; use `read()` to load or `set_data()` to create a new image.
 - `Dng(path: str, ignore_enhanced: bool = False)` — load `path` immediately; raises `RuntimeError` on failure.
 
 #### Methods
 
-- `read(path: str, ignore_enhanced: bool = False) -> int`  
-  Load a DNG from disk (returns error code; no exception on error).
+- `raw_pixels -> np.ndarray`
+  Stage 1 RAW pixels as an independent array.
 
-- `write(path: str) -> int`  
-  Save a DNG to disk.
+- `enhanced_pixels -> np.ndarray`
+  Stage 3 enhanced pixels as an independent array, when present.
 
-- `get_data(enhanced: bool = False) -> DngData`  
-  Return image data. `enhanced=True` selects Stage3; `False` selects Stage1 (raw).
+- `metadata -> DngMeta`
+  Combined EXIF, image, and color metadata.
 
-- `set_data(data: np.ndarray, pixel_type: int | str, enhanced: bool = False) -> None`  
-  Set image data. `data` has shape `(height, width, channels)`.  
-  `pixel_type` accepts numeric codes or string names (see Pixel Types below).
+- `image_info -> DngMeta`
+  Image dimensions and crop geometry.
 
-- `get_meta() -> DngMeta`  
-  Return merged metadata (EXIF + image info + color info).
+- `exif -> DngMeta`
+  EXIF metadata.
 
-- `set_meta(meta: DngMeta) -> None`  
-  Apply metadata.
+- `color_info -> DngMeta`
+  Color planes and color space.
 
-- `get_exif() -> DngMeta`  
-  Return EXIF metadata only.
+- `set_raw_pixels(pixels: np.ndarray, enhanced: bool = False) -> None`
+  Replace Stage 1 RAW pixels, or Stage 3 pixels when `enhanced=True`, inferring pixel type from NumPy dtype.
 
-- `get_image_info() -> DngMeta`  
-  Return image geometry and dimensions.
+- `save(path: str) -> int`
+  Save the DNG.
 
-- `get_color_info() -> DngMeta`  
-  Return color space and planes info.
+- `get_data_info(enhanced: bool = False) -> DngData`
+  Return image dimensions, channel count, pixel type, and active-area offset without exposing a raw buffer.
 
 - `get_baseline_exposure() -> float`  
   Baseline exposure value.
@@ -231,7 +211,7 @@ Main entry point for reading and writing DNG files.
 
 ### Pixel Types
 
-Supported by `set_data()` as either integer codes or string names:
+Inferred by `set_raw_pixels()` from the NumPy dtype:
 
 | String        | Code | DNG Constant | C Type     |
 |---------------|------|-------------|------------|
@@ -271,7 +251,7 @@ Metadata for a DNG file.
 
 ### Class `DngData`
 
-Image buffer returned by `get_data()`.
+Image description returned by `get_data_info()`.
 
 #### Fields
 
@@ -279,9 +259,7 @@ Image buffer returned by `get_data()`.
 - `pixel_type` — internal type code (see Pixel Types table)
 - `top`, `left` — active-area offset
 
-#### Methods
-
-- `to_numpy() -> np.ndarray` — Export as a NumPy array.
+Use `Dng.raw_pixels` to retrieve pixel values.
 
 ### Class `DngGainMap`
 
@@ -317,11 +295,28 @@ Sample DNG files for testing are in `extern/sample_files/`.
 
 ## Notes
 
-1. **Memory** — `DngData` lifetime is tied to the NumPy conversion; do not try to manually free the underlying pointer.
-2. **Pixel types** — Choose `pixel_type` in `set_data()` so it matches the dtype and layout of your array. Using mismatched types may produce invalid DNG files.
+1. **Memory** — `raw_pixels` and `enhanced_pixels` return independent NumPy-owned arrays. They are safe to retain after the `Dng` object is released.
+2. **Pixel types** — `set_raw_pixels()` infers the pixel type from the array dtype. Supported dtypes are listed above.
 3. **Layout** — Image arrays are expected as `(height, width, channels)` in C-contiguous order.
 4. **Windows paths** — Paths are handled with wide-character APIs where required.
-5. **Call order when writing** — Call `set_data()` BEFORE other setters (`set_baseline_exposure`, `set_white_balance`, etc.) as it initializes the internal negative.
+
+## Tests
+
+After building `_native`, run the default API and sample-read tests with:
+
+```powershell
+$env:PYTHONPATH = "$PWD\build\python"
+python -m unittest discover -s tests -v
+```
+
+To include the large float32 DNG write round trip:
+
+```powershell
+$env:PYTHONPATH = "$PWD\build\python"
+$env:DNGPY_RUN_DNG_WRITE_TEST = "1"
+python -m unittest discover -s tests -v
+```
+5. **Call order when writing** — Call `set_raw_pixels()` BEFORE other setters (`set_baseline_exposure`, `set_white_balance`, etc.) as it initializes the internal negative.
 
 ## Troubleshooting
 

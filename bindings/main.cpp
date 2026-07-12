@@ -18,15 +18,13 @@ int main() {
     }
 
     // Get and print image dimension info
-    DngMeta* info = dng.GetImageInfo();
+    DngMeta info = dng.GetImageInfo();
     std::cout << "--- DNG Image Dimensions ---" << std::endl;
-    std::cout << "Raw Width:      " << info->rawWidth << std::endl;
-    std::cout << "Raw Height:     " << info->rawHeight << std::endl;
-    std::cout << "Cropped Width:  " << info->width << std::endl;
-    std::cout << "Cropped Height: " << info->height << std::endl;
+    std::cout << "Raw Width:      " << info.rawWidth << std::endl;
+    std::cout << "Raw Height:     " << info.rawHeight << std::endl;
+    std::cout << "Cropped Width:  " << info.width << std::endl;
+    std::cout << "Cropped Height: " << info.height << std::endl;
     std::cout << "----------------------------" << std::endl;
-
-    delete info; // Free allocated memory
 
     // Get and print white balance info
     std::vector<double> wb = dng.GetWhiteBalance();
@@ -44,4 +42,3 @@ int main() {
     
     return 0;
 }
-

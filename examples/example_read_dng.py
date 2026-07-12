@@ -26,7 +26,7 @@ def read_dng_example(file_path):
     print("Successfully read DNG file!\n")
     
     # --- 1. Get Metadata ---
-    meta = dng.get_meta()
+    meta = dng.metadata
     print("=== DNG Metadata ===")
     print(f"Make: {meta.make}")
     print(f"Model: {meta.model}")
@@ -42,8 +42,8 @@ def read_dng_example(file_path):
     
     # --- 2. Get Image Data (Stage 1 - Raw Data) ---
     print("Reading Stage 1 (raw) image data...")
-    data = dng.get_data(enhanced=False)
-    numpy_array = data.to_numpy()
+    numpy_array = dng.raw_pixels
+    data = dng.get_data_info(enhanced=False)
     
     print(f"Data shape: {data.height} x {data.width} x {data.channels}")
     print(f"Pixel type: {data.pixel_type}")
@@ -53,10 +53,8 @@ def read_dng_example(file_path):
     # --- 3. Get Enhanced Image Data (Stage 3) if available ---
     try:
         print("Reading Stage 3 (enhanced) image data...")
-        enhanced_data = dng.get_data(enhanced=True)
-        if enhanced_data:
-            enhanced_array = enhanced_data.to_numpy()
-            print(f"Enhanced numpy array shape: {enhanced_array.shape}\n")
+        enhanced_array = dng.enhanced_pixels
+        print(f"Enhanced numpy array shape: {enhanced_array.shape}\n")
     except Exception as e:
         print(f"Enhanced image not available: {e}\n")
     

@@ -77,7 +77,7 @@ class DngGainMap:
         ...
 
 class DngData:
-    """Image data container for DNG files"""
+    """Image dimensions and layout returned by :meth:`Dng.get_data_info`."""
     
     width: int  # Read-only
     height: int  # Read-only
@@ -88,101 +88,55 @@ class DngData:
     
     def __init__(self) -> None: ...
     
-    def to_numpy(self) -> NDArray[Any]:
-        """
-        Convert DngData to numpy array.
-        
-        Returns:
-            numpy.ndarray: Image data as numpy array with shape (height, width, channels).
-                The dtype depends on pixel_type:
-                - "uint8" (pixel_type=1, ttByte)
-                - "uint16" (pixel_type=3, ttShort)
-                - "int16" (pixel_type=8, ttSShort)
-                - "uint32" (pixel_type=4, ttLong)
-        """
-        ...
-    
     def __repr__(self) -> str: ...
 
 class Dng:
-    """Main class for reading and writing DNG files"""
+    """Read an existing DNG file and expose a NumPy-first API."""
 
-    @overload
-    def __init__(self) -> None:
-        """Create an empty Dng object; call read() to load a file."""
-        ...
-
-    @overload
     def __init__(self, path: str, ignore_enhanced: bool = False) -> None:
         """Load a DNG from ``path``. Raises ``RuntimeError`` if reading fails."""
         ...
 
-    def read(self, path: str, ignore_enhanced: bool = False) -> ErrorCodeType:
-        """
-        Read a DNG file from disk.
-        
-        Args:
-            path: Path to the DNG file
-            ignore_enhanced: If True, ignore enhanced image IFD
-        
-        Returns:
-            ErrorCodeType: Error code (ErrorCode.NONE on success)
-        """
+    @property
+    def raw_pixels(self) -> NDArray[Any]:
+        """Stage 1 RAW pixels as an independent NumPy array."""
+        ...
+
+    @property
+    def enhanced_pixels(self) -> NDArray[Any]:
+        """Stage 3 pixels as an independent NumPy array."""
+        ...
+
+    @property
+    def metadata(self) -> DngMeta:
+        """A value snapshot of the DNG metadata."""
+        ...
+
+    @property
+    def image_info(self) -> DngMeta:
+        """A value snapshot of image dimensions and crop geometry."""
+        ...
+
+    @property
+    def exif(self) -> DngMeta:
+        """A value snapshot of the DNG EXIF metadata."""
+        ...
+
+    @property
+    def color_info(self) -> DngMeta:
+        """A value snapshot of color planes and color space."""
+        ...
+
+    def save(self, path: str) -> int:
+        """Write this DNG to ``path``."""
+        ...
+
+    def set_raw_pixels(self, pixels: NDArray[Any], enhanced: bool = False) -> None:
+        """Replace Stage 1 RAW pixels or, with ``enhanced=True``, Stage 3 pixels."""
         ...
     
-    def write(self, path: str) -> ErrorCodeType:
-        """
-        Write the DNG file to disk.
-        
-        Args:
-            path: Output file path
-        
-        Returns:
-            ErrorCodeType: Error code (ErrorCode.NONE on success)
-        """
-        ...
-    
-    def get_data(self, enhanced: bool = False) -> DngData:
-        """
-        Get image data as DngData object.
-        
-        Args:
-            enhanced: If True, return Stage3 (enhanced) image, 
-                     otherwise return Stage1 (raw) image
-        
-        Returns:
-            DngData: Image data object. The object manages its own memory
-                    and will be freed when converted to numpy array.
-        
-        Raises:
-            RuntimeError: If no image data is available
-        """
-        ...
-    
-    def set_data(
-        self, 
-        data: NDArray[Any], 
-        pixel_type: Union[int, str], 
-        enhanced: bool = False
-    ) -> None:
-        """
-        Set image data from numpy array.
-        
-        Args:
-            data: NumPy array with shape (height, width, channels).
-                  Supported dtypes: uint8, uint16, int16
-            pixel_type: Pixel type as string or integer value:
-                        - "uint8" (1): 8-bit unsigned integer
-                        - "uint16" (3): 16-bit unsigned integer
-                        - "int16" (8): 16-bit signed integer
-                        - "uint32" (4): 32-bit unsigned integer
-            enhanced: If True, set as Stage3 (enhanced) image,
-                     otherwise set as Stage1 (raw) image
-        
-        Raises:
-            RuntimeError: If data format is invalid
-            ValueError: If pixel_type string is invalid
-        """
+    def get_data_info(self, enhanced: bool = False) -> DngData:
+        """Get image dimensions, pixel type, and active-area offset without copying pixels."""
         ...
     
     def get_baseline_exposure(self) -> float:
@@ -200,42 +154,6 @@ class Dng:
         
         Args:
             exposure: Baseline exposure in EV (exposure value)
-        """
-        ...
-    
-    def get_meta(self) -> DngMeta:
-        """
-        Get all metadata from DNG file.
-        
-        Returns:
-            DngMeta: Metadata object containing EXIF, image info, and color info
-        """
-        ...
-    
-    def get_exif(self) -> DngMeta:
-        """
-        Get EXIF metadata from DNG file.
-        
-        Returns:
-            DngMeta: Metadata object containing only EXIF information
-        """
-        ...
-    
-    def get_image_info(self) -> DngMeta:
-        """
-        Get image dimensions and geometry info from DNG file.
-        
-        Returns:
-            DngMeta: Metadata object containing only image dimension information
-        """
-        ...
-    
-    def get_color_info(self) -> DngMeta:
-        """
-        Get color space and planes info from DNG file.
-        
-        Returns:
-            DngMeta: Metadata object containing only color information
         """
         ...
     

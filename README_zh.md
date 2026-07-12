@@ -114,18 +114,15 @@ import numpy as np
 # 从路径加载（失败时抛出 RuntimeError）
 dng = dngpy.Dng("input.dng", ignore_enhanced=False)
 
-meta = dng.get_meta()
+meta = dng.metadata
 print(f"相机: {meta.make} {meta.model}")
 print(f"图像尺寸: {meta.width} x {meta.height}")
 print(f"ISO: {meta.iso}")
 print(f"曝光时间: {meta.exposure_time} s")
 
-data = dng.get_data(enhanced=False)
-numpy_array = data.to_numpy()
+numpy_array = dng.raw_pixels
 print(f"图像形状: {numpy_array.shape}")
 ```
-
-如果您更喜欢通过检查 `ErrorCode` 而不是处理异常，也可以使用 `dng = dngpy.Dng()` 配合 `dng.read(path)`。
 
 ### 写入 DNG
 
@@ -136,30 +133,13 @@ import numpy as np
 height, width, channels = 1000, 1500, 3
 image_data = np.random.randint(0, 65535, size=(height, width, channels), dtype=np.uint16)
 
-dng = dngpy.Dng()
+dng = dngpy.Dng("template.dng")
 
-# pixel_type 可以是整数或字符串名：
-#   "uint16" / 3 = ttShort（16位无符号）
-#   "uint8"  / 1 = ttByte （8位无符号）
-dng.set_data(image_data, "uint16", enhanced=False)
-
-meta = dngpy.DngMeta()
-meta.make = "My Camera"
-meta.model = "Example"
-meta.software = "dngpy"
-meta.width = width
-meta.height = height
-meta.color_planes = channels
-meta.iso = 100
-meta.exposure_time = 1.0 / 60.0
-meta.f_number = 2.8
-meta.focal_length = 50.0
-
-dng.set_meta(meta)
+dng.set_raw_pixels(image_data)
 dng.set_baseline_exposure(0.5)
 dng.set_white_balance([1.0, 1.0, 1.0])
 
-error_code = dng.write("output.dng")
+error_code = dng.save("output.dng")
 if error_code != dngpy.ErrorCode.NONE:
     print(f"写入失败，错误码: {error_code}")
 ```
@@ -172,38 +152,36 @@ if error_code != dngpy.ErrorCode.NONE:
 
 #### 构造函数
 
-- `Dng()` — 空对象；使用 `read()` 加载或 `set_data()` 创建新图像。
 - `Dng(path: str, ignore_enhanced: bool = False)` — 立即加载 `path`；失败时抛出 `RuntimeError`。
 
 #### 方法
 
-- `read(path: str, ignore_enhanced: bool = False) -> int`  
-  从磁盘加载 DNG（返回错误码；出错时不抛出异常）。
+- `raw_pixels -> np.ndarray`
+  独立持有内存的 Stage 1 RAW 像素数组。
 
-- `write(path: str) -> int`  
-  将 DNG 保存到磁盘。
+- `enhanced_pixels -> np.ndarray`
+  独立持有内存的 Stage 3 增强像素数组（若存在）。
 
-- `get_data(enhanced: bool = False) -> DngData`  
-  返回图像数据。`enhanced=True` 选择 Stage3；`False` 选择 Stage1（原始）。
+- `metadata -> DngMeta`
+  合并后的 EXIF、图像与色彩元数据。
 
-- `set_data(data: np.ndarray, pixel_type: int | str, enhanced: bool = False) -> None`  
-  设置图像数据。`data` 的形状为 `(height, width, channels)`。  
-  `pixel_type` 接受数值代码或字符串名称（见下方像素类型表）。
+- `image_info -> DngMeta`
+  图像尺寸与裁剪几何信息。
 
-- `get_meta() -> DngMeta`  
-  返回合并后的元数据（EXIF + 图像信息 + 颜色信息）。
+- `exif -> DngMeta`
+  EXIF 元数据。
 
-- `set_meta(meta: DngMeta) -> None`  
-  应用元数据。
+- `color_info -> DngMeta`
+  色彩平面与色彩空间信息。
 
-- `get_exif() -> DngMeta`  
-  仅返回 EXIF 元数据。
+- `set_raw_pixels(pixels: np.ndarray, enhanced: bool = False) -> None`
+  替换 Stage 1 RAW 像素；`enhanced=True` 时替换 Stage 3 像素，并根据 NumPy dtype 推断像素类型。
 
-- `get_image_info() -> DngMeta`  
-  返回图像几何尺寸信息。
+- `save(path: str) -> int`
+  保存 DNG。
 
-- `get_color_info() -> DngMeta`  
-  返回色彩空间和平面信息。
+- `get_data_info(enhanced: bool = False) -> DngData`
+  返回图像尺寸、通道数、像素类型与有效区域偏移，不暴露底层原始缓冲区。
 
 - `get_baseline_exposure() -> float`  
   基准曝光值。
@@ -231,7 +209,7 @@ if error_code != dngpy.ErrorCode.NONE:
 
 ### 像素类型
 
-`set_data()` 支持以下类型（可使用整数代码或字符串名称）：
+`set_raw_pixels()` 会根据 NumPy dtype 自动推断以下类型：
 
 | 字符串         | 代码 | DNG 常量      | C 类型     |
 |---------------|------|--------------|------------|
@@ -271,7 +249,7 @@ DNG 文件的元数据。
 
 ### `DngData` 类
 
-由 `get_data()` 返回的图像缓冲区。
+由 `get_data_info()` 返回的图像描述对象。
 
 #### 字段
 
@@ -279,9 +257,7 @@ DNG 文件的元数据。
 - `pixel_type` — 内部类型代码（见像素类型表）
 - `top`、`left` — 有效区域偏移
 
-#### 方法
-
-- `to_numpy() -> np.ndarray` — 导出为 NumPy 数组。
+使用 `Dng.raw_pixels` 获取像素数据。
 
 ### `DngGainMap` 类
 
@@ -317,11 +293,28 @@ DNG 文件的元数据。
 
 ## 注意事项
 
-1. **内存** — `DngData` 的生命周期与 NumPy 转换操作挂钩；请勿手动释放底层指针。
-2. **像素类型** — 在 `set_data()` 中选择 `pixel_type` 时，请确保它与数组的 dtype 和布局匹配。类型不匹配可能导致无效的 DNG 文件。
+1. **内存** — `raw_pixels` 和 `enhanced_pixels` 返回独立持有内存的 NumPy 数组，即使释放 `Dng` 对象后也可以安全保留。
+2. **像素类型** — `set_raw_pixels()` 会根据数组 dtype 自动推断像素类型。支持的 dtype 见上表。
 3. **布局** — 图像数组预期为 `(height, width, channels)` 的 C-contiguous 顺序。
 4. **Windows 路径** — 在需要的地方，路径会使用宽字符 API 进行处理。
-5. **写入时的调用顺序** — 在其他设置方法（`set_baseline_exposure`、`set_white_balance` 等）之前先调用 `set_data()`，因为它负责初始化内部 negative。
+
+## 测试
+
+构建 `_native` 后，使用以下命令运行默认 API 与样例读取测试：
+
+```powershell
+$env:PYTHONPATH = "$PWD\build\python"
+python -m unittest discover -s tests -v
+```
+
+设置环境变量后，可额外运行大型 float32 DNG 写回测试：
+
+```powershell
+$env:PYTHONPATH = "$PWD\build\python"
+$env:DNGPY_RUN_DNG_WRITE_TEST = "1"
+python -m unittest discover -s tests -v
+```
+5. **写入时的调用顺序** — 在其他设置方法（`set_baseline_exposure`、`set_white_balance` 等）之前先调用 `set_raw_pixels()`，因为它负责初始化内部 negative。
 
 ## 故障排除
 

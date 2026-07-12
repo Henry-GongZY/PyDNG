@@ -5,21 +5,25 @@
 #ifndef DNG_H
 #define DNG_H
 
+#include <cstdint>
 #include <string>
+#include <vector>
 
 #include "pch.h"
 
 // DNG image data
 struct DngData {
-    void* ptr;
     uint32 width;
     uint32 height;
     uint32 channels;
     uint32 pixel_type;
-
     int top, left;
+    std::vector<std::uint8_t> bytes;
 
-    DngData() : ptr(nullptr), width(0), height(0), channels(0), pixel_type(0), top(0), left(0) {}
+    DngData() : width(0), height(0), channels(0), pixel_type(0), top(0), left(0) {}
+
+    void* Data() { return bytes.empty() ? nullptr : bytes.data(); }
+    const void* Data() const { return bytes.empty() ? nullptr : bytes.data(); }
 };
 
 // DNG metadata
@@ -85,14 +89,15 @@ public:
     int Write(const std::string&);
 
     // ── Image data access ───────────────────────────────────
-    DngData* GetData(bool enhanced) const;
-    void SetData(const DngData* data, bool enhanced);
+    DngData GetData(bool enhanced) const;
+    DngData GetDataInfo(bool enhanced) const;
+    void SetData(const DngData& data, bool enhanced);
 
     // ── Metadata ────────────────────────────────────────────
-    DngMeta *GetMeta() const;
-    DngMeta *GetExif() const;
-    DngMeta *GetImageInfo() const;
-    DngMeta *GetColorInfo() const;
+    DngMeta GetMeta() const;
+    DngMeta GetExif() const;
+    DngMeta GetImageInfo() const;
+    DngMeta GetColorInfo() const;
     void SetMeta(const DngMeta *meta);
 
     // ── Exposure & white balance ────────────────────────────
@@ -114,4 +119,3 @@ public:
 
 
 #endif //DNG_H
-
