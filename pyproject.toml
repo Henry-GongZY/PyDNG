@@ -36,6 +36,7 @@ skip = "*-win32 *_i686 pp* cp36* cp37* *musllinux*"
 build-verbosity = "1"
 
 # Test the built wheel
+test-requires = ["numpy>=1.26,<2.3"]
 test-command = "python -c \"import dngpy; print('dngpy loaded successfully')\""
 
 [tool.cibuildwheel.linux]
