@@ -64,12 +64,12 @@ def convert_to_float32(input_path, output_path):
 
     # 4. Write
     print(f"Writing: {output_path}")
-    err = dng.save(output_path)
-    if err == dngpy.ErrorCode.NONE:
+    try:
+        dng.save(output_path)
         size_mb = os.path.getsize(output_path) / (1024 * 1024)
         print(f"  Done — {size_mb:.1f} MB written.")
-    else:
-        print(f"  Write failed, error code: {err}")
+    except RuntimeError as error:
+        print(f"  Write failed: {error}")
 
 
 if __name__ == "__main__":

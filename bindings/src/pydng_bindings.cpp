@@ -170,7 +170,7 @@ PYBIND11_MODULE(_native, m) {
              "Load a DNG from path. Raises RuntimeError on failure.")
         .def("_save", &Dng::Write,
              py::arg("path"),
-             "Internal save implementation")
+             "Internal save implementation. Raises RuntimeError on failure.")
         .def("_get_pixels", [](Dng& self, bool enhanced) {
             return DngDataToNumpy(self.GetData(enhanced));
         }, py::arg("enhanced") = false,

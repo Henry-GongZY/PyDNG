@@ -141,9 +141,10 @@ dng.set_raw_pixels(image_data)
 dng.set_baseline_exposure(0.5)
 dng.set_white_balance([1.0, 1.0, 1.0])
 
-error_code = dng.save("output.dng")
-if error_code != dngpy.ErrorCode.NONE:
-    print(f"Write failed, error code: {error_code}")
+try:
+    dng.save("output.dng")
+except RuntimeError as error:
+    print(f"Write failed: {error}")
 ```
 
 ## API reference
@@ -180,7 +181,8 @@ Main entry point for reading and writing DNG files.
   Replace Stage 1 RAW pixels, or Stage 3 pixels when `enhanced=True`, inferring pixel type from NumPy dtype.
 
 - `save(path: str) -> int`
-  Save the DNG.
+  Save the DNG. Returns `ErrorCode.NONE` on success and raises `RuntimeError`
+  with the path and DNG SDK error code on failure.
 
 - `get_data_info(enhanced: bool = False) -> DngData`
   Return image dimensions, channel count, pixel type, and active-area offset without exposing a raw buffer.

@@ -39,12 +39,11 @@ def write_dng_example(template_path, output_path):
 
     # --- 3. Write to disk ---
     print(f"Writing DNG file to {output_path}...")
-    error_code = dng.save(output_path)
-    
-    if error_code != dngpy.ErrorCode.NONE:
-        print(f"Failed to write DNG file. Error code: {error_code}")
-    else:
+    try:
+        dng.save(output_path)
         print("Success! DNG file written.")
+    except RuntimeError as error:
+        print(f"Failed to write DNG file: {error}")
 
 if __name__ == "__main__":
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

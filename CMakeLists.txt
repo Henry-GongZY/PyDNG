@@ -52,6 +52,7 @@ if(BUILD_DNG_LIBRARY)
     endif()
 
     set(LIBJPEG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/libjpeg)
+    set(LIBJPEG_BUILD_DIR ${CMAKE_BINARY_DIR}/libjpeg-prefix/src/libjpeg-build)
     set(JXL_BUILD_DIR ${CMAKE_BINARY_DIR}/libjxl-prefix/src/libjxl-build)
 
     target_include_directories(dng PRIVATE
@@ -79,10 +80,10 @@ if(BUILD_DNG_LIBRARY)
         ExternalProject_Add(
             libjpeg
             SOURCE_DIR ${LIBJPEG_DIR}
-            BINARY_DIR ${LIBJPEG_DIR}
+            BINARY_DIR ${LIBJPEG_BUILD_DIR}
             CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env "CFLAGS=-fPIC -O2 ${LIBJPEG_EXTRA_CFLAGS}" "CXXFLAGS=-fPIC -O2 ${LIBJPEG_EXTRA_CFLAGS}" sh ${LIBJPEG_DIR}/configure --prefix=${CMAKE_INSTALL_PREFIX}
             BUILD_COMMAND make -j${N}
-            BUILD_BYPRODUCTS ${LIBJPEG_DIR}/.libs/libjpeg.a
+            BUILD_BYPRODUCTS ${LIBJPEG_BUILD_DIR}/.libs/libjpeg.a
             INSTALL_COMMAND ""
         )
     endif()
@@ -203,7 +204,7 @@ if(BUILD_DNG_LIBRARY)
         target_link_libraries(dng PRIVATE ${PYDNG_JXL_LIBS})
     elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         target_link_libraries(dng PRIVATE
-            ${LIBJPEG_DIR}/.libs/libjpeg.a
+            ${LIBJPEG_BUILD_DIR}/.libs/libjpeg.a
             jxl
             jxl_threads
             hwy
@@ -213,7 +214,7 @@ if(BUILD_DNG_LIBRARY)
         )
     elseif(APPLE)
         target_link_libraries(dng PRIVATE
-            ${LIBJPEG_DIR}/.libs/libjpeg.a
+            ${LIBJPEG_BUILD_DIR}/.libs/libjpeg.a
             ${JXL_BUILD_DIR}/lib/libjxl.a
             ${JXL_BUILD_DIR}/lib/libjxl_threads.a
             ${JXL_BUILD_DIR}/third_party/highway/libhwy.a
@@ -420,13 +421,7 @@ if(BUILD_PYTHON_BINDINGS)
             COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:_native> ${CMAKE_BINARY_DIR}/python/dngpy/
         )
     else()
-        # 与 wheel 一致：libdng 在 lib/、包在 dngpy/，配合 INSTALL_RPATH $ORIGIN/../lib
-        # 使用 cmake -P 复制 libdng.so*（含 symlink），避免 Ninja+sh 下 bash/shopt/cp 解析失败
-        execute_process(
-            COMMAND ${Python3_EXECUTABLE} -c "import site; print(site.getusersitepackages())"
-            OUTPUT_VARIABLE PYTHON_SITE_PACKAGES
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
+        # Match the wheel layout under build/python for local PYTHONPATH use.
         set(_copy_libdng_script ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CopyLibDngLibs.cmake)
         add_custom_command(TARGET _native POST_BUILD
             COMMAND ${CMAKE_COMMAND} -DBIN_DIR=$<TARGET_FILE_DIR:dng> -DDEST=${CMAKE_BINARY_DIR}/python/lib
@@ -436,14 +431,5 @@ if(BUILD_PYTHON_BINDINGS)
             COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:_native> ${CMAKE_BINARY_DIR}/python/dngpy/
             COMMENT "Staging dngpy (build/python/{lib,dngpy}) for local PYTHONPATH"
         )
-        if(PYTHON_SITE_PACKAGES)
-            add_custom_command(TARGET _native POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -DBIN_DIR=$<TARGET_FILE_DIR:dng> -DDEST=${PYTHON_SITE_PACKAGES}/lib
-                    -P ${_copy_libdng_script}
-                COMMAND ${CMAKE_COMMAND} -E make_directory ${PYTHON_SITE_PACKAGES}/dngpy
-                COMMAND ${CMAKE_COMMAND} -E copy_directory ${PYDNG_PY_PKG_DIR} ${PYTHON_SITE_PACKAGES}/dngpy
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:_native> ${PYTHON_SITE_PACKAGES}/dngpy/
-            )
-        endif()
     endif()
 endif()

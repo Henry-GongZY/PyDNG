@@ -11,9 +11,10 @@ int main() {
     std::string filePath = R"(C:\Users\Henrygongzy\Desktop\tt\IMG_20230102_075736_051.dng)";
 
     Dng dng;
-    int errorCode = dng.Read(filePath, false);
-    if (errorCode != dng_error_none) {
-        std::cerr << "Error reading DNG file: " << errorCode << std::endl;
+    try {
+        dng.Read(filePath, false);
+    } catch (const std::exception& error) {
+        std::cerr << error.what() << std::endl;
         return 1;
     }
 

@@ -5,8 +5,26 @@
 #include "dng.h"
 #include "utils.h"
 #include "dng_gain_map.h"
+#include <new>
 #include <stdexcept>
 #include <string>
+
+namespace {
+
+std::runtime_error DngIoError(const char* operation,
+                              const std::string& path,
+                              dng_error_code code,
+                              const std::string& detail = std::string()) {
+    std::string message = "Dng: failed to ";
+    message += operation;
+    message += " \"" + path + "\" (error code " + std::to_string(code) + ")";
+    if (!detail.empty()) {
+        message += ": " + detail;
+    }
+    return std::runtime_error(message);
+}
+
+}  // namespace
 
 // Forward declarations of utility functions
 std::string DNGStringToStdString(const dng_string& dngStr);
@@ -17,11 +35,7 @@ uint32_t BayerStringToPhase(const std::string &p);
 // ── Lifecycle: constructor ─────────────────────────────────
 
 Dng::Dng(const std::string& path, bool ignore_enhanced) {
-    const int err = Read(path, ignore_enhanced);
-    if (err != dng_error_none) {
-        throw std::runtime_error(
-            "Dng: failed to read \"" + path + "\" (error code " + std::to_string(err) + ")");
-    }
+    Read(path, ignore_enhanced);
 }
 
 // ── Lifecycle: file I/O ────────────────────────────────────
@@ -31,8 +45,7 @@ int Dng::Read(const std::string &path, bool ignore_enhanced) {
 #ifdef WIN32
         wchar_t pathw[1024]{0};
         if (UTF8ToWChar(path.c_str(), 0, pathw, 1024) == 0) {
-            std::cout << "Failed to convert to wchar_t:" << path;
-            return dng_error_read_file;
+            throw dng_exception(dng_error_read_file);
         }
         dng_file_stream stream(pathw);
 #else
@@ -51,7 +64,7 @@ int Dng::Read(const std::string &path, bool ignore_enhanced) {
         info.Parse(host, stream);
         info.PostParse(host);
         if (!info.IsValidDNG()) {
-            return dng_error_bad_format;
+            throw dng_exception(dng_error_bad_format);
         }
         negative.Reset(host.Make_dng_negative());
         if (!ignore_enhanced && info.fEnhancedIndex != -1) {
@@ -65,43 +78,69 @@ int Dng::Read(const std::string &path, bool ignore_enhanced) {
         negative->ReadStage1Image(host, stream, info);
         negative->ValidateRawImageDigest(host);
     }
+    catch (const dng_exception& error) {
+        throw DngIoError("read", path, error.ErrorCode());
+    }
+    catch (const std::bad_alloc&) {
+        throw DngIoError("read", path, dng_error_memory, "out of memory");
+    }
+    catch (const std::exception& error) {
+        throw DngIoError("read", path, dng_error_unknown, error.what());
+    }
     catch (...) {
-        std::cout << "Error loading DNG file:" << path;
-        return dng_error_read_file;
+        throw DngIoError("read", path, dng_error_unknown, "unknown error");
     }
 
     return dng_error_none;
 }
 
 int Dng::Write(const std::string &path) {
-    dng_host host;
-    dng_image_writer writer;
-
-    host.SetPreferredSize(0);
-    host.SetMinimumSize(0);
-    host.SetMaximumSize(0);
-    host.ValidateSizes();
-    if (host.MinimumSize())
-        host.SetForPreview(true);
-
-    host.SetSaveDNGVersion(dngVersion_SaveDefault);
-    host.SetSaveLinearDNG(false);
-    host.SetKeepOriginalFile(false);
-    auto &digest = const_cast<dng_fingerprint &>(negative->NewRawImageDigest());
-    digest.Clear();
-    negative->FindNewRawImageDigest(host);
-    negative->ValidateRawImageDigest(host);
-#ifdef WIN32
-    wchar_t pathw[1024]{0};
-    if (UTF8ToWChar(path.c_str(), 0, pathw, 1024) == 0) {
-        std::cout << "Failed to convert to wchar_t:" << std::endl;
-        return dng_error_write_file;
+    if (!negative.Get()) {
+        throw DngIoError("write", path, dng_error_unknown, "DNG negative is not initialized");
     }
-    dng_file_stream stream(pathw, true);
+
+    try {
+        dng_host host;
+        dng_image_writer writer;
+
+        host.SetPreferredSize(0);
+        host.SetMinimumSize(0);
+        host.SetMaximumSize(0);
+        host.ValidateSizes();
+        if (host.MinimumSize())
+            host.SetForPreview(true);
+
+        host.SetSaveDNGVersion(dngVersion_SaveDefault);
+        host.SetSaveLinearDNG(false);
+        host.SetKeepOriginalFile(false);
+        auto &digest = const_cast<dng_fingerprint &>(negative->NewRawImageDigest());
+        digest.Clear();
+        negative->FindNewRawImageDigest(host);
+        negative->ValidateRawImageDigest(host);
+#ifdef WIN32
+        wchar_t pathw[1024]{0};
+        if (UTF8ToWChar(path.c_str(), 0, pathw, 1024) == 0) {
+            throw dng_exception(dng_error_write_file);
+        }
+        dng_file_stream stream(pathw, true);
 #else
-    dng_file_stream stream(path.c_str(), true);
+        dng_file_stream stream(path.c_str(), true);
 #endif  // WIN32
-    writer.WriteDNG(host, stream, *negative, nullptr, dngVersion_SaveDefault, true);
+        writer.WriteDNG(host, stream, *negative, nullptr, dngVersion_SaveDefault, true);
+    }
+    catch (const dng_exception& error) {
+        throw DngIoError("write", path, error.ErrorCode());
+    }
+    catch (const std::bad_alloc&) {
+        throw DngIoError("write", path, dng_error_memory, "out of memory");
+    }
+    catch (const std::exception& error) {
+        throw DngIoError("write", path, dng_error_unknown, error.what());
+    }
+    catch (...) {
+        throw DngIoError("write", path, dng_error_unknown, "unknown error");
+    }
+
     return dng_error_none;
 }
 

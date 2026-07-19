@@ -69,7 +69,7 @@ class Dng(_NativeDng):
         return super()._get_color_info()
 
     def save(self, path):
-        """Write this DNG to ``path``; alias for :meth:`write`."""
+        """Write this DNG to ``path``; raise ``RuntimeError`` on failure."""
         return super()._save(path)
 
     def set_raw_pixels(self, pixels, enhanced=False):

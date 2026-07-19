@@ -128,7 +128,7 @@ class Dng:
         ...
 
     def save(self, path: str) -> int:
-        """Write this DNG to ``path``."""
+        """Write this DNG to ``path``; raise ``RuntimeError`` on failure."""
         ...
 
     def set_raw_pixels(self, pixels: NDArray[Any], enhanced: bool = False) -> None:

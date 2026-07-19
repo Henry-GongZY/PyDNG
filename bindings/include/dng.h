@@ -85,7 +85,9 @@ public:
     Dng(const std::string& path, bool ignore_enhanced = false);
 
     // ── Lifecycle: file I/O ─────────────────────────────────
+    /// Return dng_error_none on success; throw std::runtime_error with path and SDK error code on failure.
     int Read(const std::string&, bool);
+    /// Return dng_error_none on success; throw std::runtime_error with path and SDK error code on failure.
     int Write(const std::string&);
 
     // ── Image data access ───────────────────────────────────

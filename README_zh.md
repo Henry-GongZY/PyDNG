@@ -139,9 +139,10 @@ dng.set_raw_pixels(image_data)
 dng.set_baseline_exposure(0.5)
 dng.set_white_balance([1.0, 1.0, 1.0])
 
-error_code = dng.save("output.dng")
-if error_code != dngpy.ErrorCode.NONE:
-    print(f"写入失败，错误码: {error_code}")
+try:
+    dng.save("output.dng")
+except RuntimeError as error:
+    print(f"写入失败: {error}")
 ```
 
 ## API 参考
@@ -178,7 +179,8 @@ if error_code != dngpy.ErrorCode.NONE:
   替换 Stage 1 RAW 像素；`enhanced=True` 时替换 Stage 3 像素，并根据 NumPy dtype 推断像素类型。
 
 - `save(path: str) -> int`
-  保存 DNG。
+  保存 DNG。成功时返回 `ErrorCode.NONE`；失败时抛出包含路径和 DNG SDK
+  错误码的 `RuntimeError`。
 
 - `get_data_info(enhanced: bool = False) -> DngData`
   返回图像尺寸、通道数、像素类型与有效区域偏移，不暴露底层原始缓冲区。

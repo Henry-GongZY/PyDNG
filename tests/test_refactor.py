@@ -98,6 +98,26 @@ class TestNumpyFirstApi(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertFalse(hasattr(dng, name))
 
+    def test_read_error_includes_operation_path_and_error_code(self):
+        missing_path = ROOT / "does-not-exist.dng"
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            r'Dng: failed to read ".*does-not-exist\.dng" \(error code \d+\)',
+        ):
+            dngpy.Dng(str(missing_path))
+
+    def test_write_error_includes_operation_path_and_error_code(self):
+        dng = self.new_dng()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "missing" / "output.dng"
+            with self.assertRaisesRegex(
+                RuntimeError,
+                r'Dng: failed to write ".*output\.dng" \(error code \d+\)',
+            ):
+                dng.save(str(output_path))
+
 
 class TestSampleDngIntegration(unittest.TestCase):
     @classmethod
